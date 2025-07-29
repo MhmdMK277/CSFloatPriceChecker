@@ -1,2 +1,17 @@
 # CSFloatPriceChecker
-A script usable by anyone that checks the price of the user's input by checking against the CSFloat Database thanks to their API. everyone can use it by downloading the script and launching the secret.py where the user will be prompted to input his secret key so he can be able to utilize the script
+
+A script that checks the price of a Steam item by querying the CSFloat API.
+
+## Usage
+
+1. Install the dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+2. Run the script:
+   ```bash
+   python secret.py
+   ```
+3. Enter your CSFloat API key and the name of the item when prompted.
+
+The script will display the lowest price returned by the API.
