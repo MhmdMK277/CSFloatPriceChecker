@@ -1,6 +1,6 @@
 # CSFloatPriceChecker
 
-A script that checks the price of a Steam item by querying the CSFloat API.
+A script that checks CSFloat Market listings with various filters.
 
 ## Usage
 
@@ -8,10 +8,10 @@ A script that checks the price of a Steam item by querying the CSFloat API.
    ```bash
    pip install -r requirements.txt
    ```
-2. Run the script:
+2. Run the interactive script:
    ```bash
-   python secret.py
+   python csfloat_cli.py
    ```
-3. Enter your CSFloat API key and the name of the item when prompted.
+   The script stores your API key in `csfloat_config.json` and lets you search listings by item type, wear, float range and more.
 
-The script will display the lowest price returned by the API.
+You can still run `secret.py` for a simple one-off price check.
