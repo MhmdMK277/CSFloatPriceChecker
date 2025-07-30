@@ -4,7 +4,16 @@ import difflib
 import threading
 import time
 from datetime import datetime
+import logging
 import requests
+
+LOG_FILE = os.path.join(os.path.dirname(__file__), 'csfloat.log')
+logging.basicConfig(
+    filename=LOG_FILE,
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s:%(message)s'
+)
+logger = logging.getLogger(__name__)
 
 CONFIG_FILE = 'csfloat_config.json'
 ITEM_DB_FILE = 'cs2_items.json'
@@ -193,11 +202,15 @@ def query_listings(key: str, params: dict):
     url = 'https://csfloat.com/api/v1/listings'
     params = params.copy()
     headers = {'Authorization': key}
+    logger.info('Request params: %s', params)
     try:
         resp = requests.get(url, params=params, headers=headers, timeout=10)
+        logger.info('Response status: %s', resp.status_code)
         resp.raise_for_status()
+        logger.info('Response body: %s', resp.text[:200])
         return resp.json()
     except Exception as exc:
+        logger.exception('Failed to query API: %s', exc)
         print(f'Failed to query API: {exc}')
         return None
 
@@ -205,6 +218,14 @@ def query_listings(key: str, params: dict):
 def track_price(key: str, params: dict, hours: int, name: str):
     """Track price in the background for the given hours."""
     fname = f"track_{name.replace(' ', '_').replace('|', '_')}.csv"
+
+    logger.info(
+        'Starting price tracking for "%s" for %s hours; params=%s; output=%s',
+        name,
+        hours,
+        params,
+        fname,
+    )
 
     def _run():
         end = time.time() + hours * 3600
@@ -217,6 +238,7 @@ def track_price(key: str, params: dict, hours: int, name: str):
                     ts = datetime.now().isoformat()
                     with open(fname, 'a', encoding='utf-8') as fh:
                         fh.write(f'{ts},{price}\n')
+                    logger.info('Tracked price %s at %s', price, ts)
             time.sleep(3600)
 
     thread = threading.Thread(target=_run, daemon=True)
@@ -244,6 +266,13 @@ def display_results(data):
         wear_name = item.get('item', {}).get('wear_name')
         float_val = item.get('float', {}).get('float_value')
         print(f'{name} | {wear_name} | float={float_val} | price={price}')
+        logger.info(
+            'Result: %s | %s | float=%s | price=%s',
+            name,
+            wear_name,
+            float_val,
+            price,
+        )
 
 
 
@@ -258,6 +287,7 @@ def main():
         print('0. Exit')
         action = input('> ').strip()
         if action == '1':
+            logger.info('User selected search listings')
             key = get_api_key(cfg)
             if not key:
                 continue
@@ -281,6 +311,7 @@ def main():
                     params = {}
                 break
             if params:
+                logger.info('Final search parameters: %s', params)
                 data = query_listings(key, params)
                 if data:
                     display_results(data)
@@ -293,14 +324,17 @@ def main():
                 cfg['api_key'] = new_key
                 save_config(cfg)
                 print('API key updated.')
+                logger.info('API key updated by user')
         elif action == '3':
             if 'api_key' in cfg:
                 del cfg['api_key']
                 save_config(cfg)
                 print('API key deleted.')
+                logger.info('API key deleted by user')
             else:
                 print('No API key stored.')
         elif action == '0':
+            logger.info('User exited application')
             break
         else:
             print('Invalid option')
