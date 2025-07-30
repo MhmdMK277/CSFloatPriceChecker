@@ -272,6 +272,7 @@ def display_results(data):
     else:
         listings = None
 
+
     if not listings:
         print('No listings found')
         return
@@ -294,7 +295,6 @@ def display_results(data):
             float_val,
             price,
         )
-
 
 
 
