@@ -1,8 +1,23 @@
 import os
 import json
+import difflib
+import threading
+import time
+from datetime import datetime
 import requests
 
 CONFIG_FILE = 'csfloat_config.json'
+ITEM_DB_FILE = 'cs2_items.json'
+
+def load_item_names(path: str = ITEM_DB_FILE):
+    """Load item names from the CS2 items database."""
+    if os.path.exists(path):
+        with open(path, 'r', encoding='utf-8') as fh:
+            data = json.load(fh)
+            return list(data.keys())
+    return []
+
+ITEM_NAMES = load_item_names()
 
 
 def load_config():
@@ -44,6 +59,40 @@ CATEGORY_CHOICES = {
     '2': 2,
     '3': 3
 }
+
+
+def fuzzy_search_name(query: str, names: list, limit: int = 5) -> list:
+    """Return a list of close matches for the query."""
+    q_tokens = query.lower().split()
+    results = [n for n in names if all(tok in n.lower() for tok in q_tokens)]
+    if not results:
+        results = difflib.get_close_matches(query, names, n=limit)
+    return results[:limit]
+
+
+def prompt_item_name() -> str | None:
+    """Prompt user for item name and resolve via fuzzy search."""
+    if not ITEM_NAMES:
+        name = input('Enter item name: ').strip()
+        return name or None
+    while True:
+        query = input('Enter item name: ').strip()
+        if not query:
+            return None
+        matches = fuzzy_search_name(query, ITEM_NAMES)
+        if not matches:
+            print('No items found. Try again.')
+            continue
+        print('Did you mean?:')
+        for idx, m in enumerate(matches, 1):
+            print(f'{idx}) {m}')
+        print('0) Cancel')
+        choice = input('> ').strip()
+        if choice == '0':
+            return None
+        if choice.isdigit() and 1 <= int(choice) <= len(matches):
+            return matches[int(choice) - 1]
+        print('Invalid selection.')
 
 
 def prompt_item_type():
@@ -92,6 +141,53 @@ def prompt_category():
     return CATEGORY_CHOICES.get(choice)
 
 
+def prompt_sort_by() -> str | None:
+    print('Enter sort order (most_recent, lowest_price, lowest_float):')
+    sort_by = input('> ').strip()
+    return sort_by or None
+
+
+def search_options(params: dict) -> bool:
+    """Allow user to adjust parameters before searching."""
+    while True:
+        print('Options:')
+        print('1. Begin search')
+        print('2. Specify float range')
+        print('3. Specify wear')
+        print('4. Specify category')
+        print('5. Specify sort order')
+        print('0. Cancel')
+        choice = input('> ').strip()
+        if choice == '1':
+            return True
+        elif choice == '2':
+            mn, mx = prompt_float_range()
+            if mn is not None:
+                params['min_float'] = mn
+            if mx is not None:
+                params['max_float'] = mx
+        elif choice == '3':
+            w = prompt_wear()
+            if w:
+                params['wear'] = w
+            elif 'wear' in params:
+                params.pop('wear')
+        elif choice == '4':
+            c = prompt_category()
+            if c:
+                params['category'] = c
+            elif 'category' in params:
+                params.pop('category')
+        elif choice == '5':
+            s = prompt_sort_by()
+            if s:
+                params['sort_by'] = s
+        elif choice == '0':
+            return False
+        else:
+            print('Invalid option')
+
+
 def query_listings(key: str, params: dict):
     """Query CSFloat listings endpoint with provided parameters."""
     url = 'https://csfloat.com/api/v1/listings'
@@ -104,6 +200,28 @@ def query_listings(key: str, params: dict):
     except Exception as exc:
         print(f'Failed to query API: {exc}')
         return None
+
+
+def track_price(key: str, params: dict, hours: int, name: str):
+    """Track price in the background for the given hours."""
+    fname = f"track_{name.replace(' ', '_').replace('|', '_')}.csv"
+
+    def _run():
+        end = time.time() + hours * 3600
+        while time.time() < end:
+            data = query_listings(key, params)
+            if data:
+                listings = data.get('listings') if isinstance(data, dict) else data
+                if listings:
+                    price = listings[0].get('price')
+                    ts = datetime.now().isoformat()
+                    with open(fname, 'a', encoding='utf-8') as fh:
+                        fh.write(f'{ts},{price}\n')
+            time.sleep(3600)
+
+    thread = threading.Thread(target=_run, daemon=True)
+    thread.start()
+    print(f'Tracking price in {fname} for {hours} hours...')
 
 
 
@@ -152,26 +270,23 @@ def main():
                 if not item_type:
                     print('Invalid choice')
                     continue
-                if item_type == 'Skin' or item_type == 'Glove':
+                if item_type in {'Skin', 'Glove'}:
                     wear = prompt_wear()
                     if wear:
                         params['wear'] = wear
-                    min_f, max_f = prompt_float_range()
-                    if min_f is not None:
-                        params['min_float'] = min_f
-                    if max_f is not None:
-                        params['max_float'] = max_f
-                    cat = prompt_category()
-                    if cat:
-                        params['category'] = cat
-                name = input('Enter item name (or leave blank to skip): ').strip()
+                name = prompt_item_name()
                 if name:
                     params['market_hash_name'] = name
+                if not search_options(params):
+                    params = {}
                 break
             if params:
                 data = query_listings(key, params)
                 if data:
                     display_results(data)
+                    hrs = input('Track price for how many hours (0 to skip)? ').strip()
+                    if hrs.isdigit() and int(hrs) > 0:
+                        track_price(key, params, int(hrs), params['market_hash_name'])
         elif action == '2':
             new_key = input('Enter new API key: ').strip()
             if new_key:
