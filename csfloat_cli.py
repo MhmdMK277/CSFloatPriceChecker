@@ -106,6 +106,7 @@ def query_listings(key: str, params: dict):
         return None
 
 
+
 def display_results(data):
     """Display a few results from the listings response."""
     if isinstance(data, list):
@@ -123,7 +124,9 @@ def display_results(data):
         name = item.get('item', {}).get('market_hash_name')
         price = item.get('price')
         wear_name = item.get('item', {}).get('wear_name')
-        print(f"{name} - {wear_name or 'N/A'} - {price} cents")
+        float_val = item.get('float', {}).get('float_value')
+        print(f'{name} | {wear_name} | float={float_val} | price={price}')
+
 
 
 
