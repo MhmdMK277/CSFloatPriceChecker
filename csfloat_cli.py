@@ -95,11 +95,10 @@ def prompt_category():
 def query_listings(key: str, params: dict):
     """Query CSFloat listings endpoint with provided parameters."""
     url = 'https://csfloat.com/api/v1/listings'
-    # API expects the key as query parameter, not Authorization header.
     params = params.copy()
-    params['key'] = key
+    headers = {'Authorization': key}
     try:
-        resp = requests.get(url, params=params, timeout=10)
+        resp = requests.get(url, params=params, headers=headers, timeout=10)
         resp.raise_for_status()
         return resp.json()
     except Exception as exc:
@@ -109,13 +108,17 @@ def query_listings(key: str, params: dict):
 
 def display_results(data):
     """Display a few results from the listings response."""
-    if not isinstance(data, dict):
-        print('Unexpected response')
-        return
-    listings = data.get('listings')
-    if not isinstance(listings, list):
+    if isinstance(data, list):
+        listings = data
+    elif isinstance(data, dict):
+        listings = data.get('listings')
+    else:
+        listings = None
+
+    if not listings:
         print('No listings found')
         return
+
     for item in listings[:5]:
         name = item.get('item', {}).get('market_hash_name')
         price = item.get('price')
