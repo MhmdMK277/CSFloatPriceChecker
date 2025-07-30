@@ -12,6 +12,8 @@ A script that checks CSFloat Market listings with various filters.
    ```bash
    python csfloat_cli.py
    ```
-   The script stores your API key in `csfloat_config.json` and lets you search listings by item type, wear, float range and more.
+
+   The script stores your API key in `csfloat_config.json` and lets you search listings by item type, wear, float range and more. The key is sent using the `Authorization` header as required by the CSFloat API.
+
 
 You can still run `secret.py` for a simple one-off price check.
