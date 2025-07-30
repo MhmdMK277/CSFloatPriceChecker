@@ -1,4 +1,14 @@
+import os
+import logging
 import requests
+
+LOG_FILE = os.path.join(os.path.dirname(__file__), 'csfloat.log')
+logging.basicConfig(
+    filename=LOG_FILE,
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s:%(message)s'
+)
+logger = logging.getLogger(__name__)
 
 
 def main():
@@ -20,9 +30,13 @@ def main():
     }
     headers = {"Authorization": key}
 
+    logger.info('Requesting single price: params=%s', params)
+
     try:
         response = requests.get(url, params=params, headers=headers, timeout=10)
+        logger.info('Response status: %s', response.status_code)
         response.raise_for_status()
+        logger.info('Response body: %s', response.text[:200])
         data = response.json()
         if isinstance(data, list) and data:
             price = data[0].get("price")
@@ -36,6 +50,7 @@ def main():
         else:
             print(f"Lowest price for '{item_name}' is {price} cents.")
     except requests.RequestException as exc:
+        logger.exception('Failed to fetch price: %s', exc)
         print(f"Failed to fetch price: {exc}")
 
 
