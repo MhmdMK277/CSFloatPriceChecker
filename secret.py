@@ -28,7 +28,7 @@ def main():
         "limit": 1,
         "sort_by": "lowest_price",
     }
-    headers = {"Authorization": key}
+    headers = {"Authorization": f"Bearer {key}"} if key else {}
 
     logger.info('Requesting single price: params=%s', params)
 
@@ -39,16 +39,27 @@ def main():
         logger.info('Response body: %s', response.text[:200])
         data = response.json()
         if isinstance(data, list) and data:
-            price = data[0].get("price")
-        elif isinstance(data, dict) and data.get("listings"):
-            price = data["listings"][0].get("price")
+            listing = data[0]
+        elif isinstance(data, dict) and data.get("data"):
+            listing = data["data"][0]
         else:
-            price = None
+            listing = None
+
+        price = listing.get("price") if listing else None
+        listing_id = listing.get("id") if listing else None
 
         if price is None:
             print(f"No price information found for '{item_name}'.")
         else:
-            print(f"Lowest price for '{item_name}' is {price} cents.")
+            display_price = (
+                f"${price/100:.2f}" if isinstance(price, (int, float)) else price
+            )
+            link = (
+                f"https://csfloat.com/item/{listing_id}" if listing_id else ""
+            )
+            print(
+                f"Lowest price for '{item_name}' is {display_price}. {link}"
+            )
     except requests.RequestException as exc:
         logger.exception('Failed to fetch price: %s', exc)
         print(f"Failed to fetch price: {exc}")
