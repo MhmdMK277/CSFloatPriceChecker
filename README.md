@@ -23,5 +23,7 @@ The script stores your API key in `csfloat_config.json` and lets you search list
 
 After showing search results you can opt in to background price tracking. If accepted, a small window opens that logs a new price check every minute and displays an indeterminate progress bar. Close the window or press the **Stop** button to end tracking. Data is appended to a `track_<item>.csv` file.
 
+From the results window you can also open the selected listing in your web browser using the **Open Listing** button (or by double clicking a row).
+
 
 You can still run `secret.py` for a simple one-off price check.

@@ -348,14 +348,17 @@ def display_results(data) -> None:
             auction_info = 'Auction' if is_auction else 'Buy now'
             if time_left:
                 auction_info += f' (time left: {time_left})'
-            print(f"{name} | {wear_name} | float={float_val} | price={price} | {auction_info}")
+            listing_id = item.get('id')
+            url = f"https://csfloat.com/item/{listing_id}" if listing_id else 'N/A'
+            print(f"{name} | {wear_name} | float={float_val} | price={price} | {auction_info} | {url}")
             logger.info(
-                'Result: %s | %s | float=%s | price=%s | %s',
+                'Result: %s | %s | float=%s | price=%s | %s | %s',
                 name,
                 wear_name,
                 float_val,
                 price,
                 auction_info,
+                url,
             )
 
         print(f"Page {page + 1}/{total_pages} - [n]ext, [p]revious, [f]irst, [l]ast, [q]uit")
