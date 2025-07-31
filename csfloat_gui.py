@@ -9,6 +9,8 @@ import queue
 import tkinter as tk
 from tkinter import messagebox
 import ttkbootstrap as ttk
+from ttkbootstrap.toast import ToastNotification
+from ttkbootstrap.icons import Icon
 import requests
 
 
@@ -73,7 +75,7 @@ def get_api_key(cfg: dict, root: ttk.Window) -> str:
             key = val
             win.destroy()
         else:
-            messagebox.showerror('Error', 'API key is required.')
+            ToastNotification(title='Error', message='API key is required.', duration=3000, bootstyle='danger').show_toast()
 
     win = ttk.Toplevel(root)
     win.title('Enter API Key')
@@ -133,7 +135,7 @@ def query_listings(key: str, params: dict):
         return resp.json()
     except Exception as exc:
         logger.exception('Failed to query API: %s', exc)
-        messagebox.showerror('Error', f'Failed to query API: {exc}')
+        ToastNotification(title='Error', message=f'Failed to query API: {exc}', duration=3000, bootstyle='danger').show_toast()
         return None
 
 
@@ -204,7 +206,7 @@ def track_price(key: str, params: dict, name: str) -> None:
 
     threading.Thread(target=_run, daemon=True).start()
     threading.Thread(target=_ui, daemon=True).start()
-    messagebox.showinfo('Tracking', f'Tracking price in {fname}. Close window to stop.')
+    ToastNotification(title='Tracking', message=f'Tracking price in {fname}. Close window to stop.', duration=3000, bootstyle='info').show_toast()
 
 
 class PriceCheckerGUI:
@@ -219,15 +221,33 @@ class PriceCheckerGUI:
             fade_in(self.root)
         except tk.TclError:
             pass
+        self.show_search()
+
+    def clear_content(self) -> None:
+        for child in self.content.winfo_children():
+            child.destroy()
+
+    def toast(self, message: str, style: str = 'info') -> None:
+        ToastNotification(title='CSFloat', message=message, duration=3000, bootstyle=style).show_toast()
 
     def build_main(self) -> None:
         self.root.title('CSFloat Price Checker')
-        self.root.geometry('400x200')
+        self.root.geometry('900x600')
         self.style.configure('TButton', font=('Helvetica', 11))
         self.style.configure('TLabel', font=('Helvetica', 11))
-        ttk.Button(self.root, text='Search Listings', command=self.open_search, bootstyle='primary').pack(pady=5, fill='x', padx=10)
-        ttk.Button(self.root, text='Replace API Key', command=self.replace_key, bootstyle='warning').pack(pady=5, fill='x', padx=10)
-        ttk.Button(self.root, text='Delete API Key', command=self.delete_key, bootstyle='danger').pack(pady=5, fill='x', padx=10)
+
+        self.sidebar = ttk.Frame(self.root, padding=10)
+        self.sidebar.pack(side='left', fill='y')
+
+        self.content = ttk.Frame(self.root, padding=10)
+        self.content.pack(side='left', fill='both', expand=True)
+
+        # icons
+        self.info_img = tk.PhotoImage(data=Icon.info)
+
+        ttk.Button(self.sidebar, text='Search Listings', image=self.info_img, compound='left', command=self.show_search, bootstyle='primary').pack(pady=5, fill='x')
+        ttk.Button(self.sidebar, text='Replace API Key', command=self.replace_key, bootstyle='warning').pack(pady=5, fill='x')
+        ttk.Button(self.sidebar, text='Delete API Key', command=self.delete_key, bootstyle='danger').pack(pady=5, fill='x')
 
     def replace_key(self) -> None:
         new_key = tk.simpledialog.askstring('API Key', 'Enter new API key:', parent=self.root)
@@ -235,42 +255,38 @@ class PriceCheckerGUI:
             self.cfg['api_key'] = new_key.strip()
             save_config(self.cfg)
             self.api_key = new_key.strip()
-            messagebox.showinfo('API Key', 'API key updated.')
+            self.toast('API key updated', 'success')
 
     def delete_key(self) -> None:
         if 'api_key' in self.cfg:
             del self.cfg['api_key']
             save_config(self.cfg)
             self.api_key = ''
-            messagebox.showinfo('API Key', 'API key deleted.')
+            self.toast('API key deleted', 'success')
         else:
-            messagebox.showinfo('API Key', 'No API key stored.')
+            self.toast('No API key stored', 'warning')
 
-    def open_search(self) -> None:
+    def show_search(self) -> None:
         if not self.api_key:
             self.api_key = get_api_key(self.cfg, self.root)
             if not self.api_key:
                 return
-        win = ttk.Toplevel(self.root)
-        win.title('Search Listings')
-        try:
-            win.attributes('-alpha', 0.0)
-            fade_in(win)
-        except tk.TclError:
-            pass
+
+        self.clear_content()
+        frame = self.content
 
         params = {}
 
-        ttk.Label(win, text='Item Type:').grid(row=0, column=0, sticky='e')
+        ttk.Label(frame, text='Item Type:').grid(row=0, column=0, sticky='e')
         item_type_var = tk.StringVar(value='Skin')
-        ttk.Combobox(win, textvariable=item_type_var, values=list(ITEM_TYPES)).grid(row=0, column=1, sticky='w')
+        ttk.Combobox(frame, textvariable=item_type_var, values=list(ITEM_TYPES)).grid(row=0, column=1, sticky='w')
 
-        ttk.Label(win, text='Item Name:').grid(row=1, column=0, sticky='e')
+        ttk.Label(frame, text='Item Name:').grid(row=1, column=0, sticky='e')
         name_var = tk.StringVar()
-        name_entry = ttk.Entry(win, textvariable=name_var, width=40)
+        name_entry = ttk.Entry(frame, textvariable=name_var, width=40)
         name_entry.grid(row=1, column=1, sticky='w')
 
-        suggest_box = tk.Listbox(win, height=5, width=40)
+        suggest_box = tk.Listbox(frame, height=5, width=40)
         suggest_box.grid(row=2, column=1, sticky='w')
         suggest_box.grid_remove()
 
@@ -293,35 +309,34 @@ class PriceCheckerGUI:
         name_entry.bind('<KeyRelease>', update_suggestions)
         suggest_box.bind('<<ListboxSelect>>', select_suggestion)
 
-        ttk.Label(win, text='Wear:').grid(row=3, column=0, sticky='e')
+        ttk.Label(frame, text='Wear:').grid(row=3, column=0, sticky='e')
         wear_var = tk.StringVar()
-        ttk.Combobox(win, textvariable=wear_var, values=WEAR_LIST).grid(row=3, column=1, sticky='w')
+        ttk.Combobox(frame, textvariable=wear_var, values=WEAR_LIST).grid(row=3, column=1, sticky='w')
 
-        ttk.Label(win, text='Min Float:').grid(row=4, column=0, sticky='e')
+        ttk.Label(frame, text='Min Float:').grid(row=4, column=0, sticky='e')
         min_float_var = tk.StringVar()
-        ttk.Entry(win, textvariable=min_float_var, width=10).grid(row=4, column=1, sticky='w')
+        ttk.Entry(frame, textvariable=min_float_var, width=10).grid(row=4, column=1, sticky='w')
 
-        ttk.Label(win, text='Max Float:').grid(row=5, column=0, sticky='e')
+        ttk.Label(frame, text='Max Float:').grid(row=5, column=0, sticky='e')
         max_float_var = tk.StringVar()
-        ttk.Entry(win, textvariable=max_float_var, width=10).grid(row=5, column=1, sticky='w')
+        ttk.Entry(frame, textvariable=max_float_var, width=10).grid(row=5, column=1, sticky='w')
 
-        ttk.Label(win, text='Category:').grid(row=6, column=0, sticky='e')
+        ttk.Label(frame, text='Category:').grid(row=6, column=0, sticky='e')
         category_var = tk.StringVar(value='Any')
-        ttk.Combobox(win, textvariable=category_var, values=list(CATEGORY_CHOICES)).grid(row=6, column=1, sticky='w')
+        ttk.Combobox(frame, textvariable=category_var, values=list(CATEGORY_CHOICES)).grid(row=6, column=1, sticky='w')
 
-        ttk.Label(win, text='Sort By:').grid(row=7, column=0, sticky='e')
+        ttk.Label(frame, text='Sort By:').grid(row=7, column=0, sticky='e')
         sort_var = tk.StringVar(value='most_recent')
-        ttk.Combobox(win, textvariable=sort_var, values=SORT_OPTIONS).grid(row=7, column=1, sticky='w')
+        ttk.Combobox(frame, textvariable=sort_var, values=SORT_OPTIONS).grid(row=7, column=1, sticky='w')
 
         include_auctions_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(win, text='Include Auctions', variable=include_auctions_var).grid(row=8, column=1, sticky='w')
+        ttk.Checkbutton(frame, text='Include Auctions', variable=include_auctions_var).grid(row=8, column=1, sticky='w')
 
         def search():
             params.clear()
             params['type'] = 'buy_now' if not include_auctions_var.get() else None
             itype = ITEM_TYPES.get(item_type_var.get())
             if itype:
-                # wear only for skin or glove
                 if itype in {'Skin', 'Glove'}:
                     w = wear_var.get().strip()
                     if w:
@@ -351,29 +366,51 @@ class PriceCheckerGUI:
                 params['type'] = 'buy_now'
             elif include_auctions_var.get() and params.get('type'):
                 params.pop('type')
-            win.destroy()
             self.perform_search(params)
 
-        ttk.Button(win, text='Search', command=search, bootstyle='primary').grid(row=9, column=1, pady=10, sticky='e')
+        ttk.Button(frame, text='Search', command=search, bootstyle='primary').grid(row=9, column=1, pady=10, sticky='e')
 
     def perform_search(self, params: dict) -> None:
         if not params:
             return
-        data = query_listings(self.api_key, params)
-        if not data:
-            return
-        listings = data.get('data') if isinstance(data, dict) else data
-        if not listings:
-            messagebox.showinfo('Results', 'No listings found.')
-            return
-        win = ttk.Toplevel(self.root)
-        win.title('Results')
-        try:
-            win.attributes('-alpha', 0.0)
-            fade_in(win)
-        except tk.TclError:
-            pass
-        listbox = tk.Listbox(win, width=100, height=20)
+
+        self.clear_content()
+        loading = ttk.Label(self.content, text='Searching...')
+        loading.pack(pady=10)
+        pb = ttk.Progressbar(self.content, mode='indeterminate', bootstyle='info-striped')
+        pb.pack(fill='x', padx=10)
+        pb.start()
+
+        def worker() -> None:
+            data = query_listings(self.api_key, params)
+            self.root.after(0, lambda: display_results(data))
+
+        def display_results(data):
+            pb.stop()
+            loading.destroy()
+            pb.destroy()
+            if not data:
+                self.toast('Query failed', 'danger')
+                return
+            listings = data.get('data') if isinstance(data, dict) else data
+            if not listings:
+                self.toast('No listings found', 'warning')
+                return
+            self.show_results(listings, params)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def show_results(self, listings: list, params: dict) -> None:
+        self.clear_content()
+
+        columns = ['Name', 'Wear', 'Float', 'Price', 'Type', 'Time left']
+        tree = ttk.Treeview(self.content, columns=columns, show='headings', bootstyle='success')
+        for col in columns:
+            tree.heading(col, text=col, command=lambda c=col: self._sort(tree, c, False))
+            anchor = 'w' if col in {'Name', 'Wear', 'Type', 'Time left'} else 'e'
+            tree.column(col, anchor=anchor, width=120)
+        tree.column('Name', width=250)
+
         for item in listings:
             name = item.get('item', {}).get('market_hash_name')
             price_cents = item.get('price')
@@ -394,19 +431,28 @@ class PriceCheckerGUI:
                 or item.get('expires_at')
             )
             auction_info = 'Auction' if is_auction else 'Buy now'
-            if time_left:
-                auction_info += f' (time left: {time_left})'
-            listbox.insert('end', f"{name} | {wear_name} | float={float_val} | price={price} | {auction_info}")
-        listbox.pack(fill='both', expand=True)
+            tree.insert('', 'end', values=(name, wear_name, float_val, price, auction_info, time_left or ''))
+
+        tree.pack(fill='both', expand=True)
 
         def start_track():
             track_price(self.api_key, params, params['market_hash_name'])
 
-        ttk.Button(win, text='Track Price', command=start_track, bootstyle='info').pack(pady=5)
+        ttk.Button(self.content, text='Track Price', command=start_track, bootstyle='info').pack(pady=10, anchor='e')
+
+    def _sort(self, tree: ttk.Treeview, col: str, reverse: bool) -> None:
+        data = [(tree.set(k, col), k) for k in tree.get_children('')]
+        try:
+            data.sort(key=lambda t: float(t[0].strip('$')) if t[0] else 0.0, reverse=reverse)
+        except ValueError:
+            data.sort(reverse=reverse)
+        for idx, (_, k) in enumerate(data):
+            tree.move(k, '', idx)
+        tree.heading(col, command=lambda: self._sort(tree, col, not reverse))
 
 
 def main() -> None:
-    root = ttk.Window(themename='superhero')
+    root = ttk.Window(themename='morph')
     app = PriceCheckerGUI(root)
     root.mainloop()
 
