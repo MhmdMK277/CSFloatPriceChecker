@@ -154,9 +154,18 @@ def prompt_category():
 
 
 def prompt_sort_by() -> str | None:
-    print('Enter sort order (most_recent, lowest_price, lowest_float):')
-    sort_by = input('> ').strip()
-    return sort_by or None
+    options = ['most_recent', 'lowest_price', 'lowest_float']
+    print('Select sort order:')
+    for idx, opt in enumerate(options, 1):
+        print(f'{idx}. {opt}')
+    print('0. Cancel')
+    choice = input('> ').strip()
+    if choice == '0':
+        return None
+    if choice.isdigit() and 1 <= int(choice) <= len(options):
+        return options[int(choice) - 1]
+    print('Invalid selection.')
+    return None
 
 
 def prompt_include_auctions() -> bool:
