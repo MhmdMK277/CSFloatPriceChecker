@@ -8,6 +8,7 @@ import logging
 import queue
 import tkinter as tk
 from tkinter import messagebox
+import webbrowser
 import ttkbootstrap as ttk
 from ttkbootstrap.toast import ToastNotification
 from ttkbootstrap.icons import Icon
@@ -411,6 +412,8 @@ class PriceCheckerGUI:
             tree.column(col, anchor=anchor, width=120)
         tree.column('Name', width=250)
 
+        item_map: dict[str, str] = {}
+
         for item in listings:
             name = item.get('item', {}).get('market_hash_name')
             price_cents = item.get('price')
@@ -431,14 +434,33 @@ class PriceCheckerGUI:
                 or item.get('expires_at')
             )
             auction_info = 'Auction' if is_auction else 'Buy now'
-            tree.insert('', 'end', values=(name, wear_name, float_val, price, auction_info, time_left or ''))
+            iid = tree.insert('', 'end', values=(name, wear_name, float_val, price, auction_info, time_left or ''))
+            if item.get('id'):
+                item_map[iid] = item['id']
 
         tree.pack(fill='both', expand=True)
+
+        def open_listing(event=None) -> None:
+            sel = tree.selection()
+            if not sel:
+                self.toast('No listing selected', 'warning')
+                return
+            iid = sel[0]
+            listing_id = item_map.get(iid)
+            if not listing_id:
+                self.toast('Unable to determine listing ID', 'danger')
+                return
+            webbrowser.open_new_tab(f'https://csfloat.com/item/{listing_id}')
 
         def start_track():
             track_price(self.api_key, params, params['market_hash_name'])
 
-        ttk.Button(self.content, text='Track Price', command=start_track, bootstyle='info').pack(pady=10, anchor='e')
+        btn_frame = ttk.Frame(self.content)
+        btn_frame.pack(pady=10, anchor='e', fill='x')
+        ttk.Button(btn_frame, text='Open Listing', command=open_listing, bootstyle='secondary').pack(side='left')
+        ttk.Button(btn_frame, text='Track Price', command=start_track, bootstyle='info').pack(side='right')
+
+        tree.bind('<Double-1>', open_listing)
 
     def _sort(self, tree: ttk.Treeview, col: str, reverse: bool) -> None:
         data = [(tree.set(k, col), k) for k in tree.get_children('')]
