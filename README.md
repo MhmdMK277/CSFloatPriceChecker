@@ -2,6 +2,7 @@
 
 A script that checks CSFloat Market listings with various filters.
 Prices are shown in US dollars rather than cents for easier reading.
+The GUI uses the `ttkbootstrap` theme library for a modern look.
 
 ## Usage
 
@@ -13,7 +14,7 @@ Prices are shown in US dollars rather than cents for easier reading.
    ```bash
    python csfloat_cli.py
    ```
-3. Run the graphical interface:
+3. Run the graphical interface (requires `ttkbootstrap` for theming):
    ```bash
    python csfloat_gui.py
    ```
