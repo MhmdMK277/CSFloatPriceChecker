@@ -63,13 +63,6 @@ ITEM_TYPES = {
 }
 
 WEAR_LIST = ['FN', 'MW', 'FT', 'WW', 'BS']
-WEAR_TEXT = {
-    'FN': 'Factory New',
-    'MW': 'Minimal Wear',
-    'FT': 'Field-Tested',
-    'WW': 'Well-Worn',
-    'BS': 'Battle-Scarred',
-}
 CATEGORY_CHOICES = {
     '1': 1,
     '2': 2,
@@ -208,16 +201,7 @@ def query_listings(key: str, params: dict):
     """Query CSFloat listings endpoint with provided parameters."""
     url = 'https://csfloat.com/api/v1/listings'
     params = params.copy()
-    allowed = {
-        'market_hash_name',
-        'min_float',
-        'max_float',
-        'paint_seed',
-        'sort_by',
-        'limit',
-    }
-    params = {k: v for k, v in params.items() if k in allowed}
-    headers = {'Authorization': f'Bearer {key}'} if key else {}
+    headers = {'Authorization': key}
     logger.info('Request params: %s', params)
     try:
         resp = requests.get(url, params=params, headers=headers, timeout=10)
@@ -278,16 +262,11 @@ def display_results(data):
         return
 
     for item in listings[:5]:
-        itm = item.get('item') or {}
-        flt = item.get('float') or {}
-        name = itm.get('market_hash_name') or '(unknown)'
+        name = item.get('item', {}).get('market_hash_name')
         price = item.get('price')
-        wear_name = itm.get('wear_name')
-        float_val = flt.get('float_value')
-        display_price = (
-            f"${price/100:.2f}" if isinstance(price, (int, float)) else price
-        )
-        print(f'{name} | {wear_name} | float={float_val} | price={display_price}')
+        wear_name = item.get('item', {}).get('wear_name')
+        float_val = item.get('float', {}).get('float_value')
+        print(f'{name} | {wear_name} | float={float_val} | price={price}')
         logger.info(
             'Result: %s | %s | float=%s | price=%s',
             name,
@@ -295,6 +274,7 @@ def display_results(data):
             float_val,
             price,
         )
+
 
 
 
@@ -313,7 +293,6 @@ def main():
             if not key:
                 continue
             params = {}
-            chosen_type = None
             while True:
                 choice = prompt_item_type()
                 if choice == '0':
@@ -322,7 +301,6 @@ def main():
                 if not item_type:
                     print('Invalid choice')
                     continue
-                chosen_type = item_type
                 if item_type in {'Skin', 'Glove'}:
                     wear = prompt_wear()
                     if wear:
@@ -334,22 +312,6 @@ def main():
                     params = {}
                 break
             if params:
-                if chosen_type in {'Skin', 'Glove'} and params.get('market_hash_name'):
-                    w = params.get('wear')
-                    if w in WEAR_TEXT and '(' not in params['market_hash_name']:
-                        params['market_hash_name'] = (
-                            f"{params['market_hash_name']} ({WEAR_TEXT[w]})"
-                        )
-                allowed = {
-                    'market_hash_name',
-                    'min_float',
-                    'max_float',
-                    'paint_seed',
-                    'sort_by',
-                    'limit',
-                }
-                params = {k: v for k, v in params.items() if k in allowed}
-
                 logger.info('Final search parameters: %s', params)
                 data = query_listings(key, params)
                 if data:
