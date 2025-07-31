@@ -11,6 +11,20 @@ from tkinter import messagebox
 import ttkbootstrap as ttk
 import requests
 
+
+def fade_in(window: tk.Tk | tk.Toplevel, delay: int = 10, step: float = 0.05) -> None:
+    """Fade a window in by gradually increasing its opacity."""
+    try:
+        alpha = window.attributes('-alpha')
+    except tk.TclError:
+        alpha = 1.0
+    if alpha is None:
+        alpha = 0.0
+    if alpha < 1.0:
+        alpha = min(alpha + step, 1.0)
+        window.attributes('-alpha', alpha)
+        window.after(delay, lambda: fade_in(window, delay, step))
+
 LOG_FILE = os.path.join(os.path.dirname(__file__), 'csfloat.log')
 logging.basicConfig(
     filename=LOG_FILE,
@@ -63,10 +77,15 @@ def get_api_key(cfg: dict, root: ttk.Window) -> str:
 
     win = ttk.Toplevel(root)
     win.title('Enter API Key')
+    try:
+        win.attributes('-alpha', 0.0)
+        fade_in(win)
+    except tk.TclError:
+        pass
     ttk.Label(win, text='CSFloat API Key:').pack(padx=10, pady=5)
     entry = ttk.Entry(win, width=40)
     entry.pack(padx=10, pady=5)
-    ttk.Button(win, text='Save', command=save).pack(pady=10)
+    ttk.Button(win, text='Save', command=save, bootstyle='success').pack(pady=10)
     win.grab_set()
     root.wait_window(win)
     return key or ''
@@ -152,8 +171,12 @@ def track_price(key: str, params: dict, name: str) -> None:
     def _ui() -> None:
         root = ttk.Toplevel()
         root.title(f'Tracking {name}')
-
-        pb = ttk.Progressbar(root, mode='indeterminate')
+        try:
+            root.attributes('-alpha', 0.0)
+            fade_in(root)
+        except tk.TclError:
+            pass
+        pb = ttk.Progressbar(root, mode='indeterminate', bootstyle='info-striped')
         pb.pack(fill='x', padx=10, pady=10)
 
         log_box = ttk.ScrolledText(root, height=10, width=40)
@@ -162,7 +185,7 @@ def track_price(key: str, params: dict, name: str) -> None:
         def stop() -> None:
             stop_event.set()
 
-        ttk.Button(root, text='Stop', command=stop).pack(pady=(0, 10))
+        ttk.Button(root, text='Stop', command=stop, bootstyle='danger').pack(pady=(0, 10))
 
         def update() -> None:
             while not progress_queue.empty():
@@ -189,13 +212,22 @@ class PriceCheckerGUI:
         self.root = root
         self.cfg = load_config()
         self.api_key = get_api_key(self.cfg, root)
+        self.style = ttk.Style()
         self.build_main()
+        try:
+            self.root.attributes('-alpha', 0.0)
+            fade_in(self.root)
+        except tk.TclError:
+            pass
 
     def build_main(self) -> None:
         self.root.title('CSFloat Price Checker')
-        ttk.Button(self.root, text='Search Listings', command=self.open_search).pack(pady=5, fill='x')
-        ttk.Button(self.root, text='Replace API Key', command=self.replace_key).pack(pady=5, fill='x')
-        ttk.Button(self.root, text='Delete API Key', command=self.delete_key).pack(pady=5, fill='x')
+        self.root.geometry('400x200')
+        self.style.configure('TButton', font=('Helvetica', 11))
+        self.style.configure('TLabel', font=('Helvetica', 11))
+        ttk.Button(self.root, text='Search Listings', command=self.open_search, bootstyle='primary').pack(pady=5, fill='x', padx=10)
+        ttk.Button(self.root, text='Replace API Key', command=self.replace_key, bootstyle='warning').pack(pady=5, fill='x', padx=10)
+        ttk.Button(self.root, text='Delete API Key', command=self.delete_key, bootstyle='danger').pack(pady=5, fill='x', padx=10)
 
     def replace_key(self) -> None:
         new_key = tk.simpledialog.askstring('API Key', 'Enter new API key:', parent=self.root)
@@ -221,6 +253,11 @@ class PriceCheckerGUI:
                 return
         win = ttk.Toplevel(self.root)
         win.title('Search Listings')
+        try:
+            win.attributes('-alpha', 0.0)
+            fade_in(win)
+        except tk.TclError:
+            pass
 
         params = {}
 
@@ -317,7 +354,7 @@ class PriceCheckerGUI:
             win.destroy()
             self.perform_search(params)
 
-        ttk.Button(win, text='Search', command=search).grid(row=9, column=1, pady=10, sticky='e')
+        ttk.Button(win, text='Search', command=search, bootstyle='primary').grid(row=9, column=1, pady=10, sticky='e')
 
     def perform_search(self, params: dict) -> None:
         if not params:
@@ -331,6 +368,11 @@ class PriceCheckerGUI:
             return
         win = ttk.Toplevel(self.root)
         win.title('Results')
+        try:
+            win.attributes('-alpha', 0.0)
+            fade_in(win)
+        except tk.TclError:
+            pass
         listbox = tk.Listbox(win, width=100, height=20)
         for item in listings:
             name = item.get('item', {}).get('market_hash_name')
@@ -360,11 +402,11 @@ class PriceCheckerGUI:
         def start_track():
             track_price(self.api_key, params, params['market_hash_name'])
 
-        ttk.Button(win, text='Track Price', command=start_track).pack(pady=5)
+        ttk.Button(win, text='Track Price', command=start_track, bootstyle='info').pack(pady=5)
 
 
 def main() -> None:
-    root = ttk.Window(themename='flatly')
+    root = ttk.Window(themename='superhero')
     app = PriceCheckerGUI(root)
     root.mainloop()
 
