@@ -5,6 +5,9 @@ import threading
 import time
 from datetime import datetime
 import logging
+import queue
+import tkinter as tk
+from tkinter import ttk
 import requests
 
 LOG_FILE = os.path.join(os.path.dirname(__file__), 'csfloat.log')
@@ -221,21 +224,22 @@ def query_listings(key: str, params: dict):
         return None
 
 
-def track_price(key: str, params: dict, hours: int, name: str):
-    """Track price in the background for the given hours."""
+def track_price(key: str, params: dict, name: str) -> None:
+    """Track price every minute in the background with a progress window."""
     fname = f"track_{name.replace(' ', '_').replace('|', '_')}.csv"
 
     logger.info(
-        'Starting price tracking for "%s" for %s hours; params=%s; output=%s',
+        'Starting minute-based price tracking for "%s"; params=%s; output=%s',
         name,
-        hours,
         params,
         fname,
     )
 
-    def _run():
-        end = time.time() + hours * 3600
-        while time.time() < end:
+    stop_event = threading.Event()
+    progress_queue: queue.Queue[str] = queue.Queue()
+
+    def _run() -> None:
+        while not stop_event.is_set():
             data = query_listings(key, params)
             if data:
                 listings = data.get('data') if isinstance(data, dict) else data
@@ -246,11 +250,45 @@ def track_price(key: str, params: dict, hours: int, name: str):
                     with open(fname, 'a', encoding='utf-8') as fh:
                         fh.write(f'{ts},{price}\n')
                     logger.info('Tracked price %s at %s', price, ts)
-            time.sleep(3600)
+                    progress_queue.put(ts)
+            for _ in range(60):
+                if stop_event.is_set():
+                    break
+                time.sleep(1)
 
-    thread = threading.Thread(target=_run, daemon=True)
-    thread.start()
-    print(f'Tracking price in {fname} for {hours} hours...')
+    def _ui() -> None:
+        root = tk.Tk()
+        root.title(f'Tracking {name}')
+
+        pb = ttk.Progressbar(root, mode='indeterminate')
+        pb.pack(fill='x', padx=10, pady=10)
+
+        log_box = tk.Text(root, height=10, width=40)
+        log_box.pack(fill='both', padx=10, pady=10)
+
+        def stop() -> None:
+            stop_event.set()
+
+        tk.Button(root, text='Stop', command=stop).pack(pady=(0, 10))
+
+        def update() -> None:
+            while not progress_queue.empty():
+                ts = progress_queue.get()
+                log_box.insert('end', f'{ts}\n')
+                log_box.see('end')
+            if stop_event.is_set():
+                pb.stop()
+                root.destroy()
+            else:
+                pb.start(1000)
+                root.after(1000, update)
+
+        update()
+        root.mainloop()
+
+    threading.Thread(target=_run, daemon=True).start()
+    threading.Thread(target=_ui, daemon=True).start()
+    print(f'Tracking price in {fname}. Close the window to stop.')
 
 
 
@@ -342,9 +380,9 @@ def main():
                 data = query_listings(key, params)
                 if data:
                     display_results(data)
-                    hrs = input('Track price for how many hours (0 to skip)? ').strip()
-                    if hrs.isdigit() and int(hrs) > 0:
-                        track_price(key, params, int(hrs), params['market_hash_name'])
+                    choice = input('Track price every minute in background? [y/N]: ').strip().lower()
+                    if choice in {'y', 'yes'}:
+                        track_price(key, params, params['market_hash_name'])
         elif action == '2':
             new_key = input('Enter new API key: ').strip()
             if new_key:
