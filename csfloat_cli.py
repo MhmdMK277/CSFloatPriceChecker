@@ -317,6 +317,7 @@ def display_results(data):
             or item.get('auction') is True
             or item.get('listing_type') == 'auction'
             or item.get('sale_type') == 'auction'
+            or item.get('type') == 'auction'
         )
         time_left = (
             item.get('time_remaining')
@@ -324,7 +325,7 @@ def display_results(data):
             or item.get('auction_ends_at')
             or item.get('expires_at')
         )
-        auction_info = 'Auction' if is_auction else 'Listing'
+        auction_info = 'Auction' if is_auction else 'Buy now'
         if time_left:
             auction_info += f' (time left: {time_left})'
         print(f'{name} | {wear_name} | float={float_val} | price={price} | {auction_info}')
@@ -371,7 +372,10 @@ def main():
                 if name:
                     params['market_hash_name'] = name
                 include_auctions = prompt_include_auctions()
-                params['include_auctions'] = include_auctions
+                if not include_auctions:
+                    params['type'] = 'buy_now'
+                elif 'type' in params:
+                    params.pop('type')
                 if not search_options(params):
                     params = {}
                 break
