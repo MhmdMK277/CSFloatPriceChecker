@@ -6,6 +6,7 @@ import time
 from datetime import datetime
 import logging
 import queue
+from typing import Callable
 import tkinter as tk
 from tkinter import messagebox
 import webbrowser
@@ -38,6 +39,8 @@ logger = logging.getLogger(__name__)
 
 CONFIG_FILE = 'csfloat_config.json'
 ITEM_DB_FILE = 'cs2_items.json'
+HISTORY_FILE = 'search_history.json'
+TRACK_FILE = 'tracked_items.json'
 
 
 def load_item_names(path: str = ITEM_DB_FILE):
@@ -60,6 +63,36 @@ def load_config():
 def save_config(cfg: dict) -> None:
     with open(CONFIG_FILE, 'w') as fh:
         json.dump(cfg, fh)
+
+
+def load_history() -> list:
+    if os.path.exists(HISTORY_FILE):
+        try:
+            with open(HISTORY_FILE, 'r', encoding='utf-8') as fh:
+                return json.load(fh)
+        except Exception:
+            return []
+    return []
+
+
+def save_history(data: list) -> None:
+    with open(HISTORY_FILE, 'w', encoding='utf-8') as fh:
+        json.dump(data, fh)
+
+
+def load_tracked() -> dict:
+    if os.path.exists(TRACK_FILE):
+        try:
+            with open(TRACK_FILE, 'r', encoding='utf-8') as fh:
+                return json.load(fh)
+        except Exception:
+            return {}
+    return {}
+
+
+def save_tracked(data: dict) -> None:
+    with open(TRACK_FILE, 'w', encoding='utf-8') as fh:
+        json.dump(data, fh)
 
 
 def get_api_key(cfg: dict, root: ttk.Window) -> str:
@@ -140,7 +173,14 @@ def query_listings(key: str, params: dict):
         return None
 
 
-def track_price(key: str, params: dict, name: str) -> None:
+def track_price(
+    key: str,
+    params: dict,
+    name: str,
+    show_ui: bool = True,
+    stop_event: threading.Event | None = None,
+    on_stop: Callable[[], None] | None = None,
+) -> threading.Event:
     fname = f"track_{name.replace(' ', '_').replace('|', '_')}.csv"
 
     logger.info(
@@ -150,7 +190,8 @@ def track_price(key: str, params: dict, name: str) -> None:
         fname,
     )
 
-    stop_event = threading.Event()
+    if stop_event is None:
+        stop_event = threading.Event()
     progress_queue: queue.Queue[str] = queue.Queue()
 
     def _run() -> None:
@@ -189,6 +230,7 @@ def track_price(key: str, params: dict, name: str) -> None:
             stop_event.set()
 
         ttk.Button(root, text='Stop', command=stop, bootstyle='danger').pack(pady=(0, 10))
+        root.protocol('WM_DELETE_WINDOW', stop)
 
         def update() -> None:
             while not progress_queue.empty():
@@ -206,8 +248,11 @@ def track_price(key: str, params: dict, name: str) -> None:
         root.mainloop()
 
     threading.Thread(target=_run, daemon=True).start()
-    threading.Thread(target=_ui, daemon=True).start()
-    ToastNotification(title='Tracking', message=f'Tracking price in {fname}. Close window to stop.', duration=3000, bootstyle='info').show_toast()
+    if show_ui:
+        threading.Thread(target=_ui, daemon=True).start()
+        ToastNotification(title='Tracking', message=f'Tracking price in {fname}. Close window to stop.', duration=3000, bootstyle='info').show_toast()
+
+    return stop_event
 
 
 class PriceCheckerGUI:
@@ -215,6 +260,9 @@ class PriceCheckerGUI:
         self.root = root
         self.cfg = load_config()
         self.api_key = get_api_key(self.cfg, root)
+        self.history = load_history()
+        self.tracked = load_tracked()
+        self.active_tracks: dict[str, threading.Event] = {}
         self.style = ttk.Style()
         self.build_main()
         try:
@@ -247,6 +295,7 @@ class PriceCheckerGUI:
         self.info_img = tk.PhotoImage(data=Icon.info)
 
         ttk.Button(self.sidebar, text='Search Listings', image=self.info_img, compound='left', command=self.show_search, bootstyle='primary').pack(pady=5, fill='x')
+        ttk.Button(self.sidebar, text='Tracked Items', command=self.show_tracked, bootstyle='info').pack(pady=5, fill='x')
         ttk.Button(self.sidebar, text='Replace API Key', command=self.replace_key, bootstyle='warning').pack(pady=5, fill='x')
         ttk.Button(self.sidebar, text='Delete API Key', command=self.delete_key, bootstyle='danger').pack(pady=5, fill='x')
 
@@ -367,9 +416,19 @@ class PriceCheckerGUI:
                 params['type'] = 'buy_now'
             elif include_auctions_var.get() and params.get('type'):
                 params.pop('type')
+            self.add_history(params.copy())
             self.perform_search(params)
 
         ttk.Button(frame, text='Search', command=search, bootstyle='primary').grid(row=9, column=1, pady=10, sticky='e')
+
+        if self.history:
+            ttk.Label(frame, text='Recent Searches:').grid(row=10, column=0, sticky='ne')
+            hist_frame = ttk.Frame(frame)
+            hist_frame.grid(row=10, column=1, sticky='w')
+            for entry in self.history:
+                summary = self.format_history_entry(entry)
+                params_copy = entry['params'].copy()
+                ttk.Button(hist_frame, text=summary, command=lambda p=params_copy: self.perform_search(p), bootstyle='secondary').pack(fill='x', pady=2)
 
     def perform_search(self, params: dict) -> None:
         if not params:
@@ -453,7 +512,7 @@ class PriceCheckerGUI:
             webbrowser.open_new_tab(f'https://csfloat.com/item/{listing_id}')
 
         def start_track():
-            track_price(self.api_key, params, params['market_hash_name'])
+            self.start_tracking(params['market_hash_name'], params)
 
         btn_frame = ttk.Frame(self.content)
         btn_frame.pack(pady=10, anchor='e', fill='x')
@@ -471,6 +530,115 @@ class PriceCheckerGUI:
         for idx, (_, k) in enumerate(data):
             tree.move(k, '', idx)
         tree.heading(col, command=lambda: self._sort(tree, col, not reverse))
+
+    # --- History Helpers ---
+    def add_history(self, params: dict) -> None:
+        if 'market_hash_name' not in params:
+            return
+        entry = {'name': params['market_hash_name'], 'params': params.copy()}
+        entry['params'] = {k: v for k, v in entry['params'].items() if v is not None}
+        for ex in list(self.history):
+            if ex['name'] == entry['name'] and ex['params'] == entry['params']:
+                self.history.remove(ex)
+                break
+        self.history.insert(0, entry)
+        self.history = self.history[:5]
+        save_history(self.history)
+
+    def format_history_entry(self, entry: dict) -> str:
+        p = entry.get('params', {})
+        parts = []
+        if p.get('wear'):
+            parts.append(f"Wear {p['wear']}")
+        if 'min_float' in p or 'max_float' in p:
+            parts.append(f"{p.get('min_float', '')}-{p.get('max_float', '')}")
+        if 'category' in p:
+            cat = next((k for k, v in CATEGORY_CHOICES.items() if v == p['category']), p['category'])
+            parts.append(f"Category {cat}")
+        if p.get('sort_by'):
+            parts.append(f"Sort {p['sort_by']}")
+        parts.append('No Auction' if p.get('type') == 'buy_now' else 'Auctions')
+        desc = ' | '.join(parts)
+        return f"{entry['name']} ({desc})"
+
+    # --- Tracking management ---
+    def start_tracking(self, name: str, params: dict, show_window: bool = True) -> None:
+        if name in self.active_tracks:
+            self.toast('Already tracking this item', 'warning')
+            return
+        def _on_stop() -> None:
+            self.active_tracks.pop(name, None)
+            if name in self.tracked:
+                self.tracked[name]['active'] = False
+                save_tracked(self.tracked)
+
+        stop_event = track_price(self.api_key, params, name, show_window, on_stop=_on_stop)
+        self.active_tracks[name] = stop_event
+        self.tracked[name] = {'params': params.copy(), 'active': True}
+        save_tracked(self.tracked)
+
+    def toggle_tracking(self, name: str) -> None:
+        data = self.tracked.get(name)
+        if not data:
+            return
+        if data.get('active'):
+            ev = self.active_tracks.pop(name, None)
+            if ev:
+                ev.set()
+            data['active'] = False
+            self.toast(f'Tracking paused for {name}', 'info')
+        else:
+            def _on_stop() -> None:
+                self.active_tracks.pop(name, None)
+                if name in self.tracked:
+                    self.tracked[name]['active'] = False
+                    save_tracked(self.tracked)
+
+            stop_event = track_price(self.api_key, data['params'], name, show_ui=False, on_stop=_on_stop)
+            self.active_tracks[name] = stop_event
+            data['active'] = True
+            self.toast(f'Tracking resumed for {name}', 'success')
+        save_tracked(self.tracked)
+
+    def open_csv(self, name: str) -> None:
+        fname = f"track_{name.replace(' ', '_').replace('|', '_')}.csv"
+        win = ttk.Toplevel(self.root)
+        win.title(f'Tracked data: {name}')
+        try:
+            win.attributes('-alpha', 0.0)
+            fade_in(win)
+        except tk.TclError:
+            pass
+        text = ttk.ScrolledText(win, width=60, height=20)
+        text.pack(fill='both', expand=True, padx=10, pady=10)
+        try:
+            with open(fname, 'r', encoding='utf-8') as fh:
+                text.insert('end', fh.read())
+        except FileNotFoundError:
+            text.insert('end', 'No data')
+        btn_frame = ttk.Frame(win)
+        btn_frame.pack(pady=5)
+        btn_txt = tk.StringVar(value='Pause' if self.tracked.get(name, {}).get('active') else 'Resume')
+
+        def toggle() -> None:
+            self.toggle_tracking(name)
+            btn_txt.set('Pause' if self.tracked.get(name, {}).get('active') else 'Resume')
+
+        ttk.Button(btn_frame, textvariable=btn_txt, command=toggle).pack(side='left', padx=5)
+        ttk.Button(btn_frame, text='Close', command=win.destroy).pack(side='right')
+
+    def show_tracked(self) -> None:
+        self.clear_content()
+        if not self.tracked:
+            ttk.Label(self.content, text='No tracked items').pack(pady=10)
+            return
+        for name, data in self.tracked.items():
+            row = ttk.Frame(self.content)
+            row.pack(fill='x', pady=2)
+            ttk.Label(row, text=name).pack(side='left')
+            ttk.Button(row, text='Open CSV', command=lambda n=name: self.open_csv(n)).pack(side='right')
+            btn_text = 'Pause' if data.get('active') else 'Resume'
+            ttk.Button(row, text=btn_text, command=lambda n=name: self.toggle_tracking(n)).pack(side='right', padx=5)
 
 
 def main() -> None:
