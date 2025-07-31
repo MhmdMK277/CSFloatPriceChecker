@@ -87,6 +87,7 @@ CATEGORY_CHOICES = {
     'StatTrak': 2,
     'Souvenir': 3,
 }
+SORT_OPTIONS = ['most_recent', 'lowest_price', 'lowest_float']
 
 
 def fuzzy_search_name(query: str, names: list, limit: int = 10) -> list:
@@ -272,7 +273,7 @@ class PriceCheckerGUI:
 
         tk.Label(win, text='Sort By:').grid(row=7, column=0, sticky='e')
         sort_var = tk.StringVar(value='most_recent')
-        ttk.Entry(win, textvariable=sort_var, width=20).grid(row=7, column=1, sticky='w')
+        ttk.Combobox(win, textvariable=sort_var, values=SORT_OPTIONS).grid(row=7, column=1, sticky='w')
 
         include_auctions_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(win, text='Include Auctions', variable=include_auctions_var).grid(row=8, column=1, sticky='w')
