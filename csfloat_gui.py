@@ -7,7 +7,8 @@ from datetime import datetime
 import logging
 import queue
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import messagebox
+import ttkbootstrap as ttk
 import requests
 
 LOG_FILE = os.path.join(os.path.dirname(__file__), 'csfloat.log')
@@ -44,7 +45,7 @@ def save_config(cfg: dict) -> None:
         json.dump(cfg, fh)
 
 
-def get_api_key(cfg: dict, root: tk.Tk) -> str:
+def get_api_key(cfg: dict, root: ttk.Window) -> str:
     key = cfg.get('api_key')
     if key:
         return key
@@ -60,12 +61,12 @@ def get_api_key(cfg: dict, root: tk.Tk) -> str:
         else:
             messagebox.showerror('Error', 'API key is required.')
 
-    win = tk.Toplevel(root)
+    win = ttk.Toplevel(root)
     win.title('Enter API Key')
-    tk.Label(win, text='CSFloat API Key:').pack(padx=10, pady=5)
-    entry = tk.Entry(win, width=40)
+    ttk.Label(win, text='CSFloat API Key:').pack(padx=10, pady=5)
+    entry = ttk.Entry(win, width=40)
     entry.pack(padx=10, pady=5)
-    tk.Button(win, text='Save', command=save).pack(pady=10)
+    ttk.Button(win, text='Save', command=save).pack(pady=10)
     win.grab_set()
     root.wait_window(win)
     return key or ''
@@ -149,19 +150,19 @@ def track_price(key: str, params: dict, name: str) -> None:
                 time.sleep(1)
 
     def _ui() -> None:
-        root = tk.Toplevel()
+        root = ttk.Toplevel()
         root.title(f'Tracking {name}')
 
         pb = ttk.Progressbar(root, mode='indeterminate')
         pb.pack(fill='x', padx=10, pady=10)
 
-        log_box = tk.Text(root, height=10, width=40)
+        log_box = ttk.ScrolledText(root, height=10, width=40)
         log_box.pack(fill='both', padx=10, pady=10)
 
         def stop() -> None:
             stop_event.set()
 
-        tk.Button(root, text='Stop', command=stop).pack(pady=(0, 10))
+        ttk.Button(root, text='Stop', command=stop).pack(pady=(0, 10))
 
         def update() -> None:
             while not progress_queue.empty():
@@ -184,7 +185,7 @@ def track_price(key: str, params: dict, name: str) -> None:
 
 
 class PriceCheckerGUI:
-    def __init__(self, root: tk.Tk) -> None:
+    def __init__(self, root: ttk.Window) -> None:
         self.root = root
         self.cfg = load_config()
         self.api_key = get_api_key(self.cfg, root)
@@ -218,16 +219,16 @@ class PriceCheckerGUI:
             self.api_key = get_api_key(self.cfg, self.root)
             if not self.api_key:
                 return
-        win = tk.Toplevel(self.root)
+        win = ttk.Toplevel(self.root)
         win.title('Search Listings')
 
         params = {}
 
-        tk.Label(win, text='Item Type:').grid(row=0, column=0, sticky='e')
+        ttk.Label(win, text='Item Type:').grid(row=0, column=0, sticky='e')
         item_type_var = tk.StringVar(value='Skin')
         ttk.Combobox(win, textvariable=item_type_var, values=list(ITEM_TYPES)).grid(row=0, column=1, sticky='w')
 
-        tk.Label(win, text='Item Name:').grid(row=1, column=0, sticky='e')
+        ttk.Label(win, text='Item Name:').grid(row=1, column=0, sticky='e')
         name_var = tk.StringVar()
         name_entry = ttk.Entry(win, textvariable=name_var, width=40)
         name_entry.grid(row=1, column=1, sticky='w')
@@ -255,23 +256,23 @@ class PriceCheckerGUI:
         name_entry.bind('<KeyRelease>', update_suggestions)
         suggest_box.bind('<<ListboxSelect>>', select_suggestion)
 
-        tk.Label(win, text='Wear:').grid(row=3, column=0, sticky='e')
+        ttk.Label(win, text='Wear:').grid(row=3, column=0, sticky='e')
         wear_var = tk.StringVar()
         ttk.Combobox(win, textvariable=wear_var, values=WEAR_LIST).grid(row=3, column=1, sticky='w')
 
-        tk.Label(win, text='Min Float:').grid(row=4, column=0, sticky='e')
+        ttk.Label(win, text='Min Float:').grid(row=4, column=0, sticky='e')
         min_float_var = tk.StringVar()
         ttk.Entry(win, textvariable=min_float_var, width=10).grid(row=4, column=1, sticky='w')
 
-        tk.Label(win, text='Max Float:').grid(row=5, column=0, sticky='e')
+        ttk.Label(win, text='Max Float:').grid(row=5, column=0, sticky='e')
         max_float_var = tk.StringVar()
         ttk.Entry(win, textvariable=max_float_var, width=10).grid(row=5, column=1, sticky='w')
 
-        tk.Label(win, text='Category:').grid(row=6, column=0, sticky='e')
+        ttk.Label(win, text='Category:').grid(row=6, column=0, sticky='e')
         category_var = tk.StringVar(value='Any')
         ttk.Combobox(win, textvariable=category_var, values=list(CATEGORY_CHOICES)).grid(row=6, column=1, sticky='w')
 
-        tk.Label(win, text='Sort By:').grid(row=7, column=0, sticky='e')
+        ttk.Label(win, text='Sort By:').grid(row=7, column=0, sticky='e')
         sort_var = tk.StringVar(value='most_recent')
         ttk.Combobox(win, textvariable=sort_var, values=SORT_OPTIONS).grid(row=7, column=1, sticky='w')
 
@@ -328,7 +329,7 @@ class PriceCheckerGUI:
         if not listings:
             messagebox.showinfo('Results', 'No listings found.')
             return
-        win = tk.Toplevel(self.root)
+        win = ttk.Toplevel(self.root)
         win.title('Results')
         listbox = tk.Listbox(win, width=100, height=20)
         for item in listings:
@@ -363,7 +364,7 @@ class PriceCheckerGUI:
 
 
 def main() -> None:
-    root = tk.Tk()
+    root = ttk.Window(themename='flatly')
     app = PriceCheckerGUI(root)
     root.mainloop()
 
