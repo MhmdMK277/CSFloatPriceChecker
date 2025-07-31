@@ -210,6 +210,7 @@ def query_listings(key: str, params: dict):
     """Query CSFloat listings endpoint with provided parameters."""
     url = 'https://csfloat.com/api/v1/listings'
     params = params.copy()
+    params.setdefault('limit', 50)
     headers = {'Authorization': key}
     logger.info('Request params: %s', params)
     try:
@@ -291,9 +292,8 @@ def track_price(key: str, params: dict, name: str) -> None:
     print(f'Tracking price in {fname}. Close the window to stop.')
 
 
-
-def display_results(data):
-    """Display a few results from the listings response."""
+def display_results(data) -> None:
+    """Display listings results with simple pagination."""
     if isinstance(data, list):
         listings = data
     elif isinstance(data, dict):
@@ -301,45 +301,74 @@ def display_results(data):
     else:
         listings = None
 
-
     if not listings:
         print('No listings found')
         return
 
-    for item in listings[:5]:
-        name = item.get('item', {}).get('market_hash_name')
-        price_cents = item.get('price')
-        price = f"${price_cents/100:.2f}" if isinstance(price_cents, (int, float)) else price_cents
-        wear_name = item.get('item', {}).get('wear_name')
-        float_val = item.get('float', {}).get('float_value')
-        is_auction = (
-            item.get('is_auction')
-            or item.get('auction') is True
-            or item.get('listing_type') == 'auction'
-            or item.get('sale_type') == 'auction'
-            or item.get('type') == 'auction'
-        )
-        time_left = (
-            item.get('time_remaining')
-            or item.get('auction_ends_in')
-            or item.get('auction_ends_at')
-            or item.get('expires_at')
-        )
-        auction_info = 'Auction' if is_auction else 'Buy now'
-        if time_left:
-            auction_info += f' (time left: {time_left})'
-        print(f'{name} | {wear_name} | float={float_val} | price={price} | {auction_info}')
-        logger.info(
-            'Result: %s | %s | float=%s | price=%s | %s',
-            name,
-            wear_name,
-            float_val,
-            price,
-            auction_info,
-        )
+    page_size = 10
+    total = len(listings)
+    total_pages = (total + page_size - 1) // page_size
+    page = 0
 
+    while True:
+        start = page * page_size
+        end = start + page_size
+        print(f"\nShowing results {start + 1}-{min(end, total)} of {total}:")
 
+        for item in listings[start:end]:
+            name = item.get('item', {}).get('market_hash_name')
+            price_cents = item.get('price')
+            price = (
+                f"${price_cents/100:.2f}" if isinstance(price_cents, (int, float)) else price_cents
+            )
+            wear_name = item.get('item', {}).get('wear_name')
+            float_val = item.get('float', {}).get('float_value')
+            is_auction = (
+                item.get('is_auction')
+                or item.get('auction') is True
+                or item.get('listing_type') == 'auction'
+                or item.get('sale_type') == 'auction'
+                or item.get('type') == 'auction'
+            )
+            time_left = (
+                item.get('time_remaining')
+                or item.get('auction_ends_in')
+                or item.get('auction_ends_at')
+                or item.get('expires_at')
+            )
+            auction_info = 'Auction' if is_auction else 'Buy now'
+            if time_left:
+                auction_info += f' (time left: {time_left})'
+            print(f"{name} | {wear_name} | float={float_val} | price={price} | {auction_info}")
+            logger.info(
+                'Result: %s | %s | float=%s | price=%s | %s',
+                name,
+                wear_name,
+                float_val,
+                price,
+                auction_info,
+            )
 
+        print(f"Page {page + 1}/{total_pages} - [n]ext, [p]revious, [f]irst, [l]ast, [q]uit")
+        choice = input('> ').strip().lower()
+        if choice == 'n':
+            if page < total_pages - 1:
+                page += 1
+            else:
+                print('Already on last page.')
+        elif choice == 'p':
+            if page > 0:
+                page -= 1
+            else:
+                print('Already on first page.')
+        elif choice == 'f':
+            page = 0
+        elif choice == 'l':
+            page = total_pages - 1
+        elif choice == 'q':
+            break
+        else:
+            print('Invalid option')
 
 def main():
     cfg = load_config()
