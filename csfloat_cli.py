@@ -156,6 +156,12 @@ def prompt_sort_by() -> str | None:
     return sort_by or None
 
 
+def prompt_include_auctions() -> bool:
+    """Ask the user whether to include auction listings."""
+    choice = input('Include auction listings? [y/N]: ').strip().lower()
+    return choice in {'y', 'yes'}
+
+
 def search_options(params: dict) -> bool:
     """Allow user to adjust parameters before searching."""
     while True:
@@ -234,7 +240,8 @@ def track_price(key: str, params: dict, hours: int, name: str):
             if data:
                 listings = data.get('data') if isinstance(data, dict) else data
                 if listings:
-                    price = listings[0].get('price')
+                    price_cents = listings[0].get('price')
+                    price = price_cents / 100 if isinstance(price_cents, (int, float)) else price_cents
                     ts = datetime.now().isoformat()
                     with open(fname, 'a', encoding='utf-8') as fh:
                         fh.write(f'{ts},{price}\n')
@@ -263,16 +270,33 @@ def display_results(data):
 
     for item in listings[:5]:
         name = item.get('item', {}).get('market_hash_name')
-        price = item.get('price')
+        price_cents = item.get('price')
+        price = f"${price_cents/100:.2f}" if isinstance(price_cents, (int, float)) else price_cents
         wear_name = item.get('item', {}).get('wear_name')
         float_val = item.get('float', {}).get('float_value')
-        print(f'{name} | {wear_name} | float={float_val} | price={price}')
+        is_auction = (
+            item.get('is_auction')
+            or item.get('auction') is True
+            or item.get('listing_type') == 'auction'
+            or item.get('sale_type') == 'auction'
+        )
+        time_left = (
+            item.get('time_remaining')
+            or item.get('auction_ends_in')
+            or item.get('auction_ends_at')
+            or item.get('expires_at')
+        )
+        auction_info = 'Auction' if is_auction else 'Listing'
+        if time_left:
+            auction_info += f' (time left: {time_left})'
+        print(f'{name} | {wear_name} | float={float_val} | price={price} | {auction_info}')
         logger.info(
-            'Result: %s | %s | float=%s | price=%s',
+            'Result: %s | %s | float=%s | price=%s | %s',
             name,
             wear_name,
             float_val,
             price,
+            auction_info,
         )
 
 
@@ -308,6 +332,8 @@ def main():
                 name = prompt_item_name()
                 if name:
                     params['market_hash_name'] = name
+                include_auctions = prompt_include_auctions()
+                params['include_auctions'] = include_auctions
                 if not search_options(params):
                     params = {}
                 break

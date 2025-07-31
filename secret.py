@@ -39,16 +39,18 @@ def main():
         logger.info('Response body: %s', response.text[:200])
         data = response.json()
         if isinstance(data, list) and data:
-            price = data[0].get("price")
+            price_cents = data[0].get("price")
         elif isinstance(data, dict) and data.get("listings"):
-            price = data["listings"][0].get("price")
+            price_cents = data["listings"][0].get("price")
         else:
-            price = None
+            price_cents = None
+
+        price = price_cents / 100 if isinstance(price_cents, (int, float)) else None
 
         if price is None:
             print(f"No price information found for '{item_name}'.")
         else:
-            print(f"Lowest price for '{item_name}' is {price} cents.")
+            print(f"Lowest price for '{item_name}' is ${price:.2f}.")
     except requests.RequestException as exc:
         logger.exception('Failed to fetch price: %s', exc)
         print(f"Failed to fetch price: {exc}")
