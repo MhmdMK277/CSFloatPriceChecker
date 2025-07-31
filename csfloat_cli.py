@@ -201,13 +201,39 @@ def query_listings(key: str, params: dict):
     """Query CSFloat listings endpoint with provided parameters."""
     url = 'https://csfloat.com/api/v1/listings'
     params = params.copy()
-    headers = {'Authorization': key}
+    allowed = {
+        'market_hash_name',
+        'min_float',
+        'max_float',
+        'paint_seed',
+        'sort_by',
+        'limit',
+    }
+    params = {k: v for k, v in params.items() if k in allowed}
+
+    headers = {
+        'User-Agent': 'csfloat-cli/1.0 (+https://example.com)',
+        'Accept': 'application/json',
+    }
+
     logger.info('Request params: %s', params)
     try:
         resp = requests.get(url, params=params, headers=headers, timeout=10)
         logger.info('Response status: %s', resp.status_code)
-        resp.raise_for_status()
-        logger.info('Response body: %s', resp.text[:200])
+
+        if resp.status_code == 403:
+            logger.warning('403 received; retrying once without cookies')
+            with requests.Session() as s:
+                s.headers.update(headers)
+                resp = s.get(url, params=params, timeout=10)
+                logger.info('Retry status: %s', resp.status_code)
+
+        if resp.status_code >= 400:
+            logger.error('Error body: %s', resp.text[:1000])
+            logger.error('Response headers: %s', dict(resp.headers))
+            resp.raise_for_status()
+
+        logger.info('Response body (trunc): %s', resp.text[:200])
         return resp.json()
     except Exception as exc:
         logger.exception('Failed to query API: %s', exc)

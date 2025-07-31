@@ -28,7 +28,10 @@ def main():
         "limit": 1,
         "sort_by": "lowest_price",
     }
-    headers = {"Authorization": key}
+    headers = {
+        "User-Agent": "csfloat-cli/1.0 (+https://example.com)",
+        "Accept": "application/json",
+    }
 
     logger.info('Requesting single price: params=%s', params)
 
