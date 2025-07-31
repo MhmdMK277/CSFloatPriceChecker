@@ -28,7 +28,7 @@ def main():
         "limit": 1,
         "sort_by": "lowest_price",
     }
-    headers = {"Authorization": f"Bearer {key}"} if key else {}
+    headers = {"Authorization": key}
 
     logger.info('Requesting single price: params=%s', params)
 
@@ -40,8 +40,8 @@ def main():
         data = response.json()
         if isinstance(data, list) and data:
             price = data[0].get("price")
-        elif isinstance(data, dict) and data.get("data"):
-            price = data["data"][0].get("price")
+        elif isinstance(data, dict) and data.get("listings"):
+            price = data["listings"][0].get("price")
         else:
             price = None
 
