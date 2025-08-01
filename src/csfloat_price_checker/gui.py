@@ -287,6 +287,8 @@ class PriceCheckerGUI:
         self.style = ttk.Style()
         self.last_refresh_time: str | None = None
         self.build_main()
+        self.last_refresh_time: str | None = None
+        self.status_var = tk.StringVar()
         self.update_status()
         try:
             self.root.attributes('-alpha', 0.0)
