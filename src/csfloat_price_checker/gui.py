@@ -283,9 +283,9 @@ class PriceCheckerGUI:
         self.tracked = load_tracked()
         self.active_tracks: dict[str, threading.Event] = {}
         self.style = ttk.Style()
+        self.status_var = tk.StringVar()
         self.build_main()
         self.last_refresh_time: str | None = None
-        self.status_var = tk.StringVar()
         self.update_status()
         try:
             self.root.attributes('-alpha', 0.0)
