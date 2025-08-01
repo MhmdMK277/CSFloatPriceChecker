@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "csfloat-price-checker"
+version = "0.1.0"
+description = "CSFloat price checker CLI and GUI"
+authors = [{name = "Unknown", email = "example@example.com"}]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "requests",
+    "ttkbootstrap>=1.10.1",
+]
+
+[project.scripts]
+csfloat-price = "csfloat_price_checker.cli:main"
+csfloat-price-gui = "csfloat_price_checker.gui:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
