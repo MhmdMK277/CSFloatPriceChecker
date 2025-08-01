@@ -37,6 +37,16 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Track API request timestamps for rate information
+REQUEST_TIMES: list[float] = []
+
+def record_request() -> None:
+    """Record a request timestamp and prune entries older than a minute."""
+    now = time.time()
+    REQUEST_TIMES.append(now)
+    while REQUEST_TIMES and now - REQUEST_TIMES[0] > 60:
+        REQUEST_TIMES.pop(0)
+
 CONFIG_FILE = 'csfloat_config.json'
 ITEM_DB_FILE = 'cs2_items.json'
 HISTORY_FILE = 'search_history.json'
@@ -163,7 +173,11 @@ def query_listings(key: str, params: dict):
     logger.info('Request params: %s', params)
     try:
         resp = requests.get(url, params=params, headers=headers, timeout=10)
+        record_request()
         logger.info('Response status: %s', resp.status_code)
+        if resp.status_code == 429:
+            ToastNotification(title='Rate Limit', message='API rate limit reached', duration=3000, bootstyle='warning').show_toast()
+            return None
         resp.raise_for_status()
         logger.info('Response body: %s', resp.text[:200])
         return resp.json()
@@ -220,6 +234,9 @@ def track_price(
             fade_in(root)
         except tk.TclError:
             pass
+        status_lbl = ttk.Label(root, text='Running', anchor='w')
+        status_lbl.pack(fill='x', padx=10, pady=(10, 0))
+
         pb = ttk.Progressbar(root, mode='indeterminate', bootstyle='info-striped')
         pb.pack(fill='x', padx=10, pady=10)
 
@@ -228,6 +245,7 @@ def track_price(
 
         def stop() -> None:
             stop_event.set()
+            status_lbl.configure(text='Stopped')
 
         ttk.Button(root, text='Stop', command=stop, bootstyle='danger').pack(pady=(0, 10))
         root.protocol('WM_DELETE_WINDOW', stop)
@@ -259,12 +277,16 @@ class PriceCheckerGUI:
     def __init__(self, root: ttk.Window) -> None:
         self.root = root
         self.cfg = load_config()
+        self.last_filters: dict = self.cfg.get('last_filters', {})
         self.api_key = get_api_key(self.cfg, root)
         self.history = load_history()
         self.tracked = load_tracked()
         self.active_tracks: dict[str, threading.Event] = {}
         self.style = ttk.Style()
         self.build_main()
+        self.last_refresh_time: str | None = None
+        self.status_var = tk.StringVar()
+        self.update_status()
         try:
             self.root.attributes('-alpha', 0.0)
             fade_in(self.root)
@@ -279,6 +301,12 @@ class PriceCheckerGUI:
     def toast(self, message: str, style: str = 'info') -> None:
         ToastNotification(title='CSFloat', message=message, duration=3000, bootstyle=style).show_toast()
 
+    def update_status(self) -> None:
+        """Update the status bar with current request rate and last refresh."""
+        rate = len([t for t in REQUEST_TIMES if time.time() - t <= 60])
+        last = self.last_refresh_time or 'N/A'
+        self.status_var.set(f'Requests/min: {rate} | Last refresh: {last}')
+
     def build_main(self) -> None:
         self.root.title('CSFloat Price Checker')
         self.root.geometry('900x600')
@@ -290,6 +318,9 @@ class PriceCheckerGUI:
 
         self.content = ttk.Frame(self.root, padding=10)
         self.content.pack(side='left', fill='both', expand=True)
+
+        self.status = ttk.Label(self.root, textvariable=self.status_var, anchor='w')
+        self.status.pack(side='bottom', fill='x')
 
         # icons
         self.info_img = tk.PhotoImage(data=Icon.info)
@@ -328,11 +359,11 @@ class PriceCheckerGUI:
         params = {}
 
         ttk.Label(frame, text='Item Type:').grid(row=0, column=0, sticky='e')
-        item_type_var = tk.StringVar(value='Skin')
+        item_type_var = tk.StringVar(value=self.last_filters.get('item_type', 'Skin'))
         ttk.Combobox(frame, textvariable=item_type_var, values=list(ITEM_TYPES)).grid(row=0, column=1, sticky='w')
 
         ttk.Label(frame, text='Item Name:').grid(row=1, column=0, sticky='e')
-        name_var = tk.StringVar()
+        name_var = tk.StringVar(value=self.last_filters.get('name', ''))
         name_entry = ttk.Entry(frame, textvariable=name_var, width=40)
         name_entry.grid(row=1, column=1, sticky='w')
 
@@ -360,26 +391,26 @@ class PriceCheckerGUI:
         suggest_box.bind('<<ListboxSelect>>', select_suggestion)
 
         ttk.Label(frame, text='Wear:').grid(row=3, column=0, sticky='e')
-        wear_var = tk.StringVar()
+        wear_var = tk.StringVar(value=self.last_filters.get('wear', ''))
         ttk.Combobox(frame, textvariable=wear_var, values=WEAR_LIST).grid(row=3, column=1, sticky='w')
 
         ttk.Label(frame, text='Min Float:').grid(row=4, column=0, sticky='e')
-        min_float_var = tk.StringVar()
+        min_float_var = tk.StringVar(value=str(self.last_filters.get('min_float', '')))
         ttk.Entry(frame, textvariable=min_float_var, width=10).grid(row=4, column=1, sticky='w')
 
         ttk.Label(frame, text='Max Float:').grid(row=5, column=0, sticky='e')
-        max_float_var = tk.StringVar()
+        max_float_var = tk.StringVar(value=str(self.last_filters.get('max_float', '')))
         ttk.Entry(frame, textvariable=max_float_var, width=10).grid(row=5, column=1, sticky='w')
 
         ttk.Label(frame, text='Category:').grid(row=6, column=0, sticky='e')
-        category_var = tk.StringVar(value='Any')
+        category_var = tk.StringVar(value=self.last_filters.get('category', 'Any'))
         ttk.Combobox(frame, textvariable=category_var, values=list(CATEGORY_CHOICES)).grid(row=6, column=1, sticky='w')
 
         ttk.Label(frame, text='Sort By:').grid(row=7, column=0, sticky='e')
-        sort_var = tk.StringVar(value='most_recent')
+        sort_var = tk.StringVar(value=self.last_filters.get('sort_by', 'most_recent'))
         ttk.Combobox(frame, textvariable=sort_var, values=SORT_OPTIONS).grid(row=7, column=1, sticky='w')
 
-        include_auctions_var = tk.BooleanVar(value=True)
+        include_auctions_var = tk.BooleanVar(value=self.last_filters.get('include_auctions', True))
         ttk.Checkbutton(frame, text='Include Auctions', variable=include_auctions_var).grid(row=8, column=1, sticky='w')
 
         def search():
@@ -417,6 +448,18 @@ class PriceCheckerGUI:
             elif include_auctions_var.get() and params.get('type'):
                 params.pop('type')
             self.add_history(params.copy())
+            self.last_filters = {
+                'item_type': item_type_var.get(),
+                'name': name_var.get(),
+                'wear': wear_var.get(),
+                'min_float': min_float_var.get(),
+                'max_float': max_float_var.get(),
+                'category': category_var.get(),
+                'sort_by': sort_var.get(),
+                'include_auctions': include_auctions_var.get(),
+            }
+            self.cfg['last_filters'] = self.last_filters
+            save_config(self.cfg)
             self.perform_search(params)
 
         ttk.Button(frame, text='Search', command=search, bootstyle='primary').grid(row=9, column=1, pady=10, sticky='e')
@@ -443,7 +486,10 @@ class PriceCheckerGUI:
 
         def worker() -> None:
             data = query_listings(self.api_key, params)
+            if data is not None:
+                self.last_refresh_time = datetime.now().strftime('%H:%M:%S')
             self.root.after(0, lambda: display_results(data))
+            self.root.after(0, self.update_status)
 
         def display_results(data):
             pb.stop()
@@ -514,9 +560,25 @@ class PriceCheckerGUI:
         def start_track():
             self.start_tracking(params['market_hash_name'], params)
 
+        def copy_url() -> None:
+            sel = tree.selection()
+            if not sel:
+                self.toast('No listing selected', 'warning')
+                return
+            iid = sel[0]
+            listing_id = item_map.get(iid)
+            if not listing_id:
+                self.toast('Unable to determine listing ID', 'danger')
+                return
+            url = f'https://csfloat.com/item/{listing_id}'
+            self.root.clipboard_clear()
+            self.root.clipboard_append(url)
+            self.toast('URL copied', 'success')
+
         btn_frame = ttk.Frame(self.content)
         btn_frame.pack(pady=10, anchor='e', fill='x')
         ttk.Button(btn_frame, text='Open Listing', command=open_listing, bootstyle='secondary').pack(side='left')
+        ttk.Button(btn_frame, text='Copy URL', command=copy_url, bootstyle='secondary').pack(side='left', padx=5)
         ttk.Button(btn_frame, text='Track Price', command=start_track, bootstyle='info').pack(side='right')
 
         tree.bind('<Double-1>', open_listing)
