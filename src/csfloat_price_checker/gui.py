@@ -42,6 +42,26 @@ logger = logging.getLogger(__name__)
 # Track API request timestamps for rate information
 REQUEST_TIMES: list[float] = []
 
+# Default API rate limit (requests per minute); updated dynamically
+API_RATE_LIMIT: int = 60
+
+
+def update_rate_limit(headers: dict) -> None:
+    """Update the global API rate limit from response headers."""
+    global API_RATE_LIMIT
+    try:
+        limit = int(headers.get('X-RateLimit-Limit', API_RATE_LIMIT))
+        if limit > 0:
+            API_RATE_LIMIT = limit
+    except (TypeError, ValueError):
+        pass
+
+
+def rate_limit_interval() -> float:
+    """Return the recommended delay between requests based on the limit."""
+    return 60.0 / API_RATE_LIMIT if API_RATE_LIMIT else 6.0
+
+
 def record_request() -> None:
     """Record a request timestamp and prune entries older than a minute."""
     now = time.time()
@@ -189,6 +209,7 @@ def query_listings(key: str, params: dict):
     try:
         resp = requests.get(url, params=params, headers=headers, timeout=10)
         record_request()
+        update_rate_limit(resp.headers)
         logger.info('Response status: %s', resp.status_code)
         if resp.status_code == 429:
             ToastNotification(title='Rate Limit', message='API rate limit reached', duration=3000, bootstyle='warning').show_toast()
@@ -677,21 +698,91 @@ class PriceCheckerGUI:
         if not self.bulk_items:
             self.toast('No items to search', 'warning')
             return
-        for entry in self.bulk_items:
-            threading.Thread(target=self._bulk_worker, args=(entry['params'].copy(),), daemon=True).start()
-
-    def _bulk_worker(self, params: dict) -> None:
-        data = query_listings(self.api_key, params)
-        if data:
-            listings = data.get('data') if isinstance(data, dict) else data
-            if listings:
+        def worker() -> None:
+            results: list[dict] = []
+            interval = rate_limit_interval()
+            for idx, entry in enumerate(self.bulk_items):
+                params = entry['params'].copy()
+                params['limit'] = 1
+                params['sort_by'] = 'lowest_price'
+                start = time.time()
+                data = query_listings(self.api_key, params)
+                if data:
+                    listings = data.get('data') if isinstance(data, dict) else data
+                    if listings:
+                        item = listings[0]
+                        price_cents = item.get('price')
+                        float_val = item.get('float', {}).get('float_value')
+                        listing_id = item.get('id')
+                        price = price_cents / 100 if isinstance(price_cents, (int, float)) else None
+                        results.append({
+                            'name': params.get('market_hash_name', ''),
+                            'price': price,
+                            'float': float_val,
+                            'id': listing_id,
+                            'params': params,
+                        })
                 self.last_refresh_time = datetime.now().strftime('%H:%M:%S')
-                self.root.after(0, lambda: self.show_results_window(listings, params))
                 self.root.after(0, self.update_status)
-            else:
-                self.root.after(0, lambda: self.toast(f"No listings found for {params.get('market_hash_name')}", 'warning'))
-        else:
-            self.root.after(0, lambda: self.toast(f"Query failed for {params.get('market_hash_name')}", 'danger'))
+                elapsed = time.time() - start
+                if idx < len(self.bulk_items) - 1:
+                    time.sleep(max(0, interval - elapsed))
+            self.root.after(0, lambda: self.show_bulk_results(results))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def show_bulk_results(self, results: list[dict]) -> None:
+        win = ttk.Toplevel(self.root)
+        win.title('Bulk Search Results')
+        try:
+            win.attributes('-alpha', 0.0)
+            fade_in(win)
+        except tk.TclError:
+            pass
+        frame = ttk.Frame(win, padding=10)
+        frame.pack(fill='both', expand=True)
+
+        tree = ttk.Treeview(frame, columns=('item', 'price', 'float'), show='headings')
+        tree.heading('item', text='Item')
+        tree.heading('price', text='Lowest Price')
+        tree.heading('float', text='Float')
+        tree.column('item', width=300)
+        tree.pack(fill='both', expand=True)
+
+        for res in results:
+            price = f"${res['price']:.2f}" if isinstance(res['price'], (int, float)) else ''
+            float_val = res['float'] if res['float'] is not None else ''
+            tree.insert('', 'end', values=(res['name'], price, float_val))
+
+        lowest = min((r['price'] for r in results if isinstance(r['price'], (int, float))), default=None)
+        if lowest is not None:
+            ttk.Label(frame, text=f'Overall lowest price: ${lowest:.2f}').pack(anchor='w', pady=5)
+
+        def open_listing(event=None) -> None:
+            sel = tree.selection()
+            if not sel:
+                self.toast('No item selected', 'warning')
+                return
+            idx = tree.index(sel[0])
+            listing_id = results[idx].get('id')
+            if listing_id:
+                webbrowser.open_new_tab(f'https://csfloat.com/item/{listing_id}')
+
+        def track_selected() -> None:
+            sel = tree.selection()
+            if not sel:
+                self.toast('No item selected', 'warning')
+                return
+            idx = tree.index(sel[0])
+            params = results[idx].get('params', {})
+            self.open_search_track_modal(params)
+
+        btn_frame = ttk.Frame(frame)
+        btn_frame.pack(pady=10, anchor='e', fill='x')
+        ttk.Button(btn_frame, text='Open Listing', command=open_listing, bootstyle='secondary').pack(side='left')
+        ttk.Button(btn_frame, text='Track Selected', command=track_selected, bootstyle='warning').pack(side='right')
+
+        tree.bind('<Double-1>', open_listing)
 
     def perform_search(self, params: dict) -> None:
         if not params:
