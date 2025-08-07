@@ -28,6 +28,8 @@ This exposes the `csfloat-price` and `csfloat-price-gui` commands.
 
 The script stores your API key in `csfloat_config.json` and lets you search listings by item type, wear, float range and more. It now also allows you to include or exclude auction listings from the results. The key is sent using the `Authorization` header as required by the CSFloat API. All requests and responses are logged to `csfloat.log` for troubleshooting.
 
+The GUI also offers a **Bulk Search** menu where you can configure multiple items, each with its own filters, and run all of the searches at once. Results for every item open in separate windows for easy comparison.
+
 After showing search results you can opt in to tracking. Two modes are available:
 
 1. **Alerts** – get notified when a listing meets your price or float filters.

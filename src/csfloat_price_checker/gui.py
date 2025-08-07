@@ -303,6 +303,7 @@ class PriceCheckerGUI:
         self.tracked_items = load_tracked_items()
         self.active_tracks: dict[str, threading.Event] = {}
         self.search_threads: dict[str, threading.Event] = {}
+        self.bulk_items: list[dict] = []
         self.style = ttk.Style()
         self.status_var = tk.StringVar()
         self.build_main()
@@ -358,6 +359,12 @@ class PriceCheckerGUI:
             compound='left',
             command=self.show_search,
             bootstyle='primary',
+        ).pack(pady=5, fill='x')
+        ttk.Button(
+            self.sidebar,
+            text='Bulk Search',
+            command=self.show_bulk_search,
+            bootstyle='success',
         ).pack(pady=5, fill='x')
         ttk.Button(
             self.sidebar,
@@ -527,6 +534,165 @@ class PriceCheckerGUI:
                 params_copy = entry['params'].copy()
                 ttk.Button(hist_frame, text=summary, command=lambda p=params_copy: self.perform_search(p), bootstyle='secondary').pack(fill='x', pady=2)
 
+    def show_bulk_search(self) -> None:
+        if not self.api_key:
+            self.api_key = get_api_key(self.cfg, self.root)
+            if not self.api_key:
+                return
+
+        self.clear_content()
+        frame = self.content
+
+        listbox = tk.Listbox(frame, height=10)
+        listbox.pack(fill='both', expand=True, pady=5)
+        self.bulk_listbox = listbox
+        for entry in self.bulk_items:
+            listbox.insert('end', entry['label'])
+
+        btn_frame = ttk.Frame(frame)
+        btn_frame.pack(pady=10, fill='x')
+
+        ttk.Button(btn_frame, text='Add Item', command=self.open_bulk_item_modal).pack(side='left')
+
+        def remove_selected() -> None:
+            sel = listbox.curselection()
+            if sel:
+                idx = sel[0]
+                listbox.delete(idx)
+                del self.bulk_items[idx]
+
+        ttk.Button(btn_frame, text='Remove Selected', command=remove_selected).pack(side='left', padx=5)
+        ttk.Button(btn_frame, text='Search All', command=self.perform_bulk_search, bootstyle='primary').pack(side='right')
+
+    def open_bulk_item_modal(self) -> None:
+        win = ttk.Toplevel(self.root)
+        win.title('Add Bulk Search Item')
+        try:
+            win.attributes('-alpha', 0.0)
+            fade_in(win)
+        except tk.TclError:
+            pass
+
+        params: dict = {}
+
+        ttk.Label(win, text='Item Type:').grid(row=0, column=0, sticky='e')
+        item_type_var = tk.StringVar(value='Skin')
+        ttk.Combobox(win, textvariable=item_type_var, values=list(ITEM_TYPES)).grid(row=0, column=1, sticky='w')
+
+        ttk.Label(win, text='Item Name:').grid(row=1, column=0, sticky='e')
+        name_var = tk.StringVar()
+        name_entry = ttk.Entry(win, textvariable=name_var, width=40)
+        name_entry.grid(row=1, column=1, sticky='w')
+
+        suggest_box = tk.Listbox(win, height=5, width=40)
+        suggest_box.grid(row=2, column=1, sticky='w')
+        suggest_box.grid_remove()
+
+        def update_suggestions(event=None):
+            query = name_var.get()
+            matches = fuzzy_search_name(query, ITEM_NAMES)
+            suggest_box.delete(0, 'end')
+            for m in matches:
+                suggest_box.insert('end', m)
+            if matches:
+                suggest_box.grid()
+            else:
+                suggest_box.grid_remove()
+
+        def select_suggestion(event):
+            if suggest_box.curselection():
+                name_var.set(suggest_box.get(suggest_box.curselection()[0]))
+                suggest_box.grid_remove()
+
+        name_entry.bind('<KeyRelease>', update_suggestions)
+        suggest_box.bind('<<ListboxSelect>>', select_suggestion)
+
+        ttk.Label(win, text='Wear:').grid(row=3, column=0, sticky='e')
+        wear_var = tk.StringVar()
+        ttk.Combobox(win, textvariable=wear_var, values=WEAR_LIST).grid(row=3, column=1, sticky='w')
+
+        ttk.Label(win, text='Min Float:').grid(row=4, column=0, sticky='e')
+        min_float_var = tk.StringVar()
+        ttk.Entry(win, textvariable=min_float_var, width=10).grid(row=4, column=1, sticky='w')
+
+        ttk.Label(win, text='Max Float:').grid(row=5, column=0, sticky='e')
+        max_float_var = tk.StringVar()
+        ttk.Entry(win, textvariable=max_float_var, width=10).grid(row=5, column=1, sticky='w')
+
+        ttk.Label(win, text='Category:').grid(row=6, column=0, sticky='e')
+        category_var = tk.StringVar(value='Any')
+        ttk.Combobox(win, textvariable=category_var, values=list(CATEGORY_CHOICES)).grid(row=6, column=1, sticky='w')
+
+        ttk.Label(win, text='Sort By:').grid(row=7, column=0, sticky='e')
+        sort_var = tk.StringVar(value='most_recent')
+        ttk.Combobox(win, textvariable=sort_var, values=SORT_OPTIONS).grid(row=7, column=1, sticky='w')
+
+        include_auctions_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(win, text='Include Auctions', variable=include_auctions_var).grid(row=8, column=1, sticky='w')
+
+        def save() -> None:
+            params.clear()
+            params['type'] = 'buy_now' if not include_auctions_var.get() else None
+            itype = ITEM_TYPES.get(item_type_var.get())
+            if itype and itype in {'Skin', 'Glove'}:
+                w = wear_var.get().strip()
+                if w:
+                    params['wear'] = w
+            name = name_var.get().strip()
+            if not name:
+                self.toast('Item name required', 'danger')
+                return
+            params['market_hash_name'] = name
+            mn = min_float_var.get().strip()
+            if mn:
+                try:
+                    params['min_float'] = float(mn)
+                except ValueError:
+                    pass
+            mx = max_float_var.get().strip()
+            if mx:
+                try:
+                    params['max_float'] = float(mx)
+                except ValueError:
+                    pass
+            cat = CATEGORY_CHOICES.get(category_var.get())
+            if cat:
+                params['category'] = cat
+            sort = sort_var.get().strip()
+            if sort:
+                params['sort_by'] = sort
+            if include_auctions_var.get() and params.get('type'):
+                params.pop('type')
+            entry_label = self.format_history_entry({'name': name, 'params': params})
+            self.bulk_items.append({'params': params.copy(), 'label': entry_label})
+            if getattr(self, 'bulk_listbox', None):
+                self.bulk_listbox.insert('end', entry_label)
+            win.destroy()
+
+        ttk.Button(win, text='Add', command=save, bootstyle='success').grid(row=9, column=1, pady=10, sticky='e')
+        win.grab_set()
+        self.root.wait_window(win)
+
+    def perform_bulk_search(self) -> None:
+        if not self.bulk_items:
+            self.toast('No items to search', 'warning')
+            return
+        for entry in self.bulk_items:
+            threading.Thread(target=self._bulk_worker, args=(entry['params'].copy(),), daemon=True).start()
+
+    def _bulk_worker(self, params: dict) -> None:
+        data = query_listings(self.api_key, params)
+        if data:
+            listings = data.get('data') if isinstance(data, dict) else data
+            if listings:
+                self.last_refresh_time = datetime.now().strftime('%H:%M:%S')
+                self.root.after(0, lambda: self.show_results_window(listings, params))
+                self.root.after(0, self.update_status)
+            else:
+                self.root.after(0, lambda: self.toast(f"No listings found for {params.get('market_hash_name')}", 'warning'))
+        else:
+            self.root.after(0, lambda: self.toast(f"Query failed for {params.get('market_hash_name')}", 'danger'))
+
     def perform_search(self, params: dict) -> None:
         if not params:
             return
@@ -649,6 +815,24 @@ class PriceCheckerGUI:
         ttk.Button(btn_frame, text='Track This Search', command=track_search, bootstyle='warning').pack(side='right')
 
         tree.bind('<Double-1>', open_listing)
+
+    def show_results_window(self, listings: list, params: dict) -> None:
+        win = ttk.Toplevel(self.root)
+        win.title(make_search_key(params))
+        try:
+            win.attributes('-alpha', 0.0)
+            fade_in(win)
+        except tk.TclError:
+            pass
+        frame = ttk.Frame(win, padding=10)
+        frame.pack(fill='both', expand=True)
+        old = self.content
+        self.content = frame
+        try:
+            self.show_results(listings, params)
+        finally:
+            self.content = old
+
     def _sort(self, tree: ttk.Treeview, col: str, reverse: bool) -> None:
         data = [(tree.set(k, col), k) for k in tree.get_children('')]
         try:
