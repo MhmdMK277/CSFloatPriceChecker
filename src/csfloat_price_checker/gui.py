@@ -15,6 +15,8 @@ from ttkbootstrap.toast import ToastNotification
 from ttkbootstrap.icons import Icon
 import requests
 
+from .notification import show_desktop_notification
+
 
 def fade_in(window: tk.Tk | tk.Toplevel, delay: int = 10, step: float = 0.05) -> None:
     """Fade a window in by gradually increasing its opacity."""
@@ -326,7 +328,7 @@ class PriceCheckerGUI:
         self.info_img = tk.PhotoImage(data=Icon.info)
 
         ttk.Button(self.sidebar, text='Search Listings', image=self.info_img, compound='left', command=self.show_search, bootstyle='primary').pack(pady=5, fill='x')
-        ttk.Button(self.sidebar, text='Tracked Items', command=self.show_tracked, bootstyle='info').pack(pady=5, fill='x')
+        ttk.Button(self.sidebar, text='Tracked Alerts', command=self.show_tracked, bootstyle='info').pack(pady=5, fill='x')
         ttk.Button(self.sidebar, text='Replace API Key', command=self.replace_key, bootstyle='warning').pack(pady=5, fill='x')
         ttk.Button(self.sidebar, text='Delete API Key', command=self.delete_key, bootstyle='danger').pack(pady=5, fill='x')
 
@@ -509,15 +511,17 @@ class PriceCheckerGUI:
     def show_results(self, listings: list, params: dict) -> None:
         self.clear_content()
 
-        columns = ['Name', 'Wear', 'Float', 'Price', 'Type', 'Time left']
+        columns = ['Name', 'Wear', 'Float', 'Price', 'Type', 'Time left', 'Track']
         tree = ttk.Treeview(self.content, columns=columns, show='headings', bootstyle='success')
         for col in columns:
             tree.heading(col, text=col, command=lambda c=col: self._sort(tree, c, False))
-            anchor = 'w' if col in {'Name', 'Wear', 'Type', 'Time left'} else 'e'
+            anchor = 'w' if col in {'Name', 'Wear', 'Type', 'Time left', 'Track'} else 'e'
             tree.column(col, anchor=anchor, width=120)
         tree.column('Name', width=250)
+        tree.column('Track', width=80)
 
-        item_map: dict[str, str] = {}
+        id_map: dict[str, str] = {}
+        listing_map: dict[str, dict] = {}
 
         for item in listings:
             name = item.get('item', {}).get('market_hash_name')
@@ -539,9 +543,25 @@ class PriceCheckerGUI:
                 or item.get('expires_at')
             )
             auction_info = 'Auction' if is_auction else 'Buy now'
-            iid = tree.insert('', 'end', values=(name, wear_name, float_val, price, auction_info, time_left or ''))
+            iid = tree.insert('', 'end', values=(name, wear_name, float_val, price, auction_info, time_left or '', 'Track'))
             if item.get('id'):
-                item_map[iid] = item['id']
+                id_map[iid] = item['id']
+            listing_map[iid] = item
+
+            settings = self.tracked.get(name)
+            if settings and isinstance(price_cents, (int, float)) and isinstance(float_val, (int, float)):
+                price_val = price_cents / 100
+                if price_val <= settings.get('threshold', float('inf')) and settings.get('float_min', 0) <= float_val <= settings.get('float_max', 1):
+                    tree.item(iid, tags=('match',))
+                    tree.tag_configure('match', background='yellow')
+                    last = settings.get('last_notified_price')
+                    should_notify = True
+                    if settings.get('notify_once', True) and last is not None and price_val >= last:
+                        should_notify = False
+                    if should_notify and price_val != last:
+                        show_desktop_notification(name, {'price': price_val, 'float': float_val})
+                        settings['last_notified_price'] = price_val
+                        save_tracked(self.tracked)
 
         tree.pack(fill='both', expand=True)
 
@@ -551,14 +571,11 @@ class PriceCheckerGUI:
                 self.toast('No listing selected', 'warning')
                 return
             iid = sel[0]
-            listing_id = item_map.get(iid)
+            listing_id = id_map.get(iid)
             if not listing_id:
                 self.toast('Unable to determine listing ID', 'danger')
                 return
             webbrowser.open_new_tab(f'https://csfloat.com/item/{listing_id}')
-
-        def start_track():
-            self.start_tracking(params['market_hash_name'], params)
 
         def copy_url() -> None:
             sel = tree.selection()
@@ -566,7 +583,7 @@ class PriceCheckerGUI:
                 self.toast('No listing selected', 'warning')
                 return
             iid = sel[0]
-            listing_id = item_map.get(iid)
+            listing_id = id_map.get(iid)
             if not listing_id:
                 self.toast('Unable to determine listing ID', 'danger')
                 return
@@ -579,10 +596,18 @@ class PriceCheckerGUI:
         btn_frame.pack(pady=10, anchor='e', fill='x')
         ttk.Button(btn_frame, text='Open Listing', command=open_listing, bootstyle='secondary').pack(side='left')
         ttk.Button(btn_frame, text='Copy URL', command=copy_url, bootstyle='secondary').pack(side='left', padx=5)
-        ttk.Button(btn_frame, text='Track Price', command=start_track, bootstyle='info').pack(side='right')
+
+        def on_tree_click(event) -> None:
+            col = tree.identify_column(event.x)
+            iid = tree.identify_row(event.y)
+            if col == f"#{len(columns)}" and iid:
+                item = listing_map.get(iid)
+                name = item.get('item', {}).get('market_hash_name') if item else None
+                if name and item:
+                    self.open_track_modal(name, item)
 
         tree.bind('<Double-1>', open_listing)
-
+        tree.bind('<Button-1>', on_tree_click)
     def _sort(self, tree: ttk.Treeview, col: str, reverse: bool) -> None:
         data = [(tree.set(k, col), k) for k in tree.get_children('')]
         try:
@@ -593,7 +618,65 @@ class PriceCheckerGUI:
             tree.move(k, '', idx)
         tree.heading(col, command=lambda: self._sort(tree, col, not reverse))
 
-    # --- History Helpers ---
+    
+    def open_track_modal(self, name: str, listing: dict | None = None) -> None:
+        data = self.tracked.get(name, {})
+        win = ttk.Toplevel(self.root)
+        win.title(f'Track alert for: {name}')
+        try:
+            win.attributes('-alpha', 0.0)
+            fade_in(win)
+        except tk.TclError:
+            pass
+        notify_var = tk.BooleanVar(value=data.get('notify_once', True))
+        thresh_var = tk.StringVar(value=str(data.get('threshold', '')))
+        fmin_var = tk.StringVar(value=str(data.get('float_min', '')))
+        fmax_var = tk.StringVar(value=str(data.get('float_max', '')))
+
+        ttk.Checkbutton(win, text='Notify once only', variable=notify_var).pack(padx=10, pady=(10, 0), anchor='w')
+        frm = ttk.Frame(win)
+        frm.pack(padx=10, pady=5, fill='x')
+        ttk.Label(frm, text='Max Price:').grid(row=0, column=0, sticky='e')
+        ttk.Entry(frm, textvariable=thresh_var, width=10).grid(row=0, column=1, sticky='w')
+        ttk.Label(frm, text='Float Range:').grid(row=1, column=0, sticky='e')
+        ttk.Entry(frm, textvariable=fmin_var, width=10).grid(row=1, column=1, sticky='w')
+        ttk.Entry(frm, textvariable=fmax_var, width=10).grid(row=1, column=2, sticky='w', padx=(5, 0))
+
+        def save() -> None:
+            try:
+                threshold = float(thresh_var.get())
+                fmin = float(fmin_var.get())
+                fmax = float(fmax_var.get())
+            except ValueError:
+                self.toast('Invalid number entered', 'danger')
+                return
+            inspect = data.get('inspect_link')
+            if listing:
+                inspect = listing.get('inspect_url') or listing.get('inspect_link') or inspect
+            self.tracked[name] = {
+                'inspect_link': inspect,
+                'threshold': threshold,
+                'float_min': fmin,
+                'float_max': fmax,
+                'notify_once': notify_var.get(),
+                'last_notified_price': data.get('last_notified_price'),
+            }
+            save_tracked(self.tracked)
+            win.destroy()
+            self.toast('Alert saved', 'success')
+
+        ttk.Button(win, text='Save Alert', command=save, bootstyle='success').pack(pady=(5, 10))
+        win.grab_set()
+        self.root.wait_window(win)
+
+    def delete_alert(self, name: str) -> None:
+        if name in self.tracked:
+            del self.tracked[name]
+            save_tracked(self.tracked)
+            self.show_tracked()
+            self.toast('Alert deleted', 'info')
+
+# --- History Helpers ---
     def add_history(self, params: dict) -> None:
         if 'market_hash_name' not in params:
             return
@@ -692,16 +775,41 @@ class PriceCheckerGUI:
     def show_tracked(self) -> None:
         self.clear_content()
         if not self.tracked:
-            ttk.Label(self.content, text='No tracked items').pack(pady=10)
+            ttk.Label(self.content, text='No tracked alerts').pack(pady=10)
             return
+        columns = ['Skin', 'Threshold', 'Float Range', 'Notify Once']
+        tree = ttk.Treeview(self.content, columns=columns, show='headings', bootstyle='info')
+        for col in columns:
+            tree.heading(col, text=col)
+            tree.column(col, width=150, anchor='w')
+        tree.pack(fill='both', expand=True)
         for name, data in self.tracked.items():
-            row = ttk.Frame(self.content)
-            row.pack(fill='x', pady=2)
-            ttk.Label(row, text=name).pack(side='left')
-            ttk.Button(row, text='Open CSV', command=lambda n=name: self.open_csv(n)).pack(side='right')
-            btn_text = 'Pause' if data.get('active') else 'Resume'
-            ttk.Button(row, text=btn_text, command=lambda n=name: self.toggle_tracking(n)).pack(side='right', padx=5)
+            thr = f"${data.get('threshold',0):.2f}"
+            frange = f"{data.get('float_min',0)}-{data.get('float_max',1)}"
+            once = 'Yes' if data.get('notify_once') else 'No'
+            tree.insert('', 'end', values=(name, thr, frange, once))
 
+        btn_frame = ttk.Frame(self.content)
+        btn_frame.pack(pady=10, anchor='e')
+
+        def edit() -> None:
+            sel = tree.selection()
+            if not sel:
+                self.toast('No alert selected', 'warning')
+                return
+            name = tree.item(sel[0])['values'][0]
+            self.open_track_modal(name)
+
+        def delete() -> None:
+            sel = tree.selection()
+            if not sel:
+                self.toast('No alert selected', 'warning')
+                return
+            name = tree.item(sel[0])['values'][0]
+            self.delete_alert(name)
+
+        ttk.Button(btn_frame, text='Edit', command=edit, bootstyle='secondary').pack(side='left')
+        ttk.Button(btn_frame, text='Delete', command=delete, bootstyle='danger').pack(side='left', padx=5)
 
 def main() -> None:
     root = ttk.Window(themename='morph')
