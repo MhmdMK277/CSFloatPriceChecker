@@ -598,6 +598,7 @@ class PriceCheckerGUI:
             listing_map[iid] = item
 
             settings = self.alerts.get(name)
+
             if settings and isinstance(price_cents, (int, float)) and isinstance(float_val, (int, float)):
                 price_val = price_cents / 100
                 if price_val <= settings.get('threshold', float('inf')) and settings.get('float_min', 0) <= float_val <= settings.get('float_max', 1):
@@ -652,7 +653,6 @@ class PriceCheckerGUI:
         btn_frame.pack(pady=10, anchor='e', fill='x')
         ttk.Button(btn_frame, text='Open Listing', command=open_listing, bootstyle='secondary').pack(side='left')
         ttk.Button(btn_frame, text='Copy URL', command=copy_url, bootstyle='secondary').pack(side='left', padx=5)
-        ttk.Button(btn_frame, text='Track Price', command=start_track, bootstyle='info').pack(side='right')
 
         def on_tree_click(event) -> None:
             col = tree.identify_column(event.x)
@@ -718,6 +718,7 @@ class PriceCheckerGUI:
                 'notify_once': notify_var.get(),
                 'last_notified_price': data.get('last_notified_price'),
             }
+
             save_tracked(self.alerts)
             win.destroy()
             self.toast('Alert saved', 'success')
@@ -848,7 +849,7 @@ class PriceCheckerGUI:
     def show_tracked_items(self) -> None:
         self.clear_content()
         if not self.tracked:
-            ttk.Label(self.content, text='No tracked items').pack(pady=10)
+            ttk.Label(self.content, text='No tracked alerts').pack(pady=10)
             return
         ttk.Label(self.content, text='Tracked Items', font=('Helvetica', 14, 'bold')).pack(pady=(0, 10))
         for name, data in self.tracked.items():
