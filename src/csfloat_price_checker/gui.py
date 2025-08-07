@@ -93,6 +93,7 @@ def save_history(data: list) -> None:
 
 
 def load_tracked() -> dict:
+    """Load alert definitions from disk."""
     if os.path.exists(TRACK_FILE):
         try:
             with open(TRACK_FILE, 'r', encoding='utf-8') as fh:
@@ -103,7 +104,26 @@ def load_tracked() -> dict:
 
 
 def save_tracked(data: dict) -> None:
+    """Persist alert definitions to disk."""
     with open(TRACK_FILE, 'w', encoding='utf-8') as fh:
+        json.dump(data, fh)
+
+
+PRICE_TRACK_FILE = 'price_tracks.json'
+
+
+def load_price_tracks() -> dict:
+    if os.path.exists(PRICE_TRACK_FILE):
+        try:
+            with open(PRICE_TRACK_FILE, 'r', encoding='utf-8') as fh:
+                return json.load(fh)
+        except Exception:
+            return {}
+    return {}
+
+
+def save_price_tracks(data: dict) -> None:
+    with open(PRICE_TRACK_FILE, 'w', encoding='utf-8') as fh:
         json.dump(data, fh)
 
 
@@ -282,7 +302,8 @@ class PriceCheckerGUI:
         self.last_filters: dict = self.cfg.get('last_filters', {})
         self.api_key = get_api_key(self.cfg, root)
         self.history = load_history()
-        self.tracked = load_tracked()
+        self.alerts = load_tracked()
+        self.tracked = load_price_tracks()
         self.active_tracks: dict[str, threading.Event] = {}
         self.style = ttk.Style()
         self.status_var = tk.StringVar()
@@ -327,10 +348,38 @@ class PriceCheckerGUI:
         # icons
         self.info_img = tk.PhotoImage(data=Icon.info)
 
-        ttk.Button(self.sidebar, text='Search Listings', image=self.info_img, compound='left', command=self.show_search, bootstyle='primary').pack(pady=5, fill='x')
-        ttk.Button(self.sidebar, text='Tracked Alerts', command=self.show_tracked, bootstyle='info').pack(pady=5, fill='x')
-        ttk.Button(self.sidebar, text='Replace API Key', command=self.replace_key, bootstyle='warning').pack(pady=5, fill='x')
-        ttk.Button(self.sidebar, text='Delete API Key', command=self.delete_key, bootstyle='danger').pack(pady=5, fill='x')
+        ttk.Button(
+            self.sidebar,
+            text='Search Listings',
+            image=self.info_img,
+            compound='left',
+            command=self.show_search,
+            bootstyle='primary',
+        ).pack(pady=5, fill='x')
+        ttk.Button(
+            self.sidebar,
+            text='Tracked Items',
+            command=self.show_tracked_items,
+            bootstyle='secondary',
+        ).pack(pady=5, fill='x')
+        ttk.Button(
+            self.sidebar,
+            text='Tracked Alerts',
+            command=self.show_tracked_alerts,
+            bootstyle='info',
+        ).pack(pady=5, fill='x')
+        ttk.Button(
+            self.sidebar,
+            text='Replace API Key',
+            command=self.replace_key,
+            bootstyle='warning',
+        ).pack(pady=5, fill='x')
+        ttk.Button(
+            self.sidebar,
+            text='Delete API Key',
+            command=self.delete_key,
+            bootstyle='danger',
+        ).pack(pady=5, fill='x')
 
     def replace_key(self) -> None:
         new_key = tk.simpledialog.askstring('API Key', 'Enter new API key:', parent=self.root)
@@ -548,7 +597,8 @@ class PriceCheckerGUI:
                 id_map[iid] = item['id']
             listing_map[iid] = item
 
-            settings = self.tracked.get(name)
+            settings = self.alerts.get(name)
+
             if settings and isinstance(price_cents, (int, float)) and isinstance(float_val, (int, float)):
                 price_val = price_cents / 100
                 if price_val <= settings.get('threshold', float('inf')) and settings.get('float_min', 0) <= float_val <= settings.get('float_max', 1):
@@ -561,7 +611,7 @@ class PriceCheckerGUI:
                     if should_notify and price_val != last:
                         show_desktop_notification(name, {'price': price_val, 'float': float_val})
                         settings['last_notified_price'] = price_val
-                        save_tracked(self.tracked)
+                        save_tracked(self.alerts)
 
         tree.pack(fill='both', expand=True)
 
@@ -592,6 +642,13 @@ class PriceCheckerGUI:
             self.root.clipboard_append(url)
             self.toast('URL copied', 'success')
 
+        def start_track() -> None:
+            name = params.get('market_hash_name')
+            if not name:
+                self.toast('Search name required for tracking', 'warning')
+                return
+            self.start_tracking(name, params)
+
         btn_frame = ttk.Frame(self.content)
         btn_frame.pack(pady=10, anchor='e', fill='x')
         ttk.Button(btn_frame, text='Open Listing', command=open_listing, bootstyle='secondary').pack(side='left')
@@ -620,7 +677,7 @@ class PriceCheckerGUI:
 
     
     def open_track_modal(self, name: str, listing: dict | None = None) -> None:
-        data = self.tracked.get(name, {})
+        data = self.alerts.get(name, {})
         win = ttk.Toplevel(self.root)
         win.title(f'Track alert for: {name}')
         try:
@@ -653,7 +710,7 @@ class PriceCheckerGUI:
             inspect = data.get('inspect_link')
             if listing:
                 inspect = listing.get('inspect_url') or listing.get('inspect_link') or inspect
-            self.tracked[name] = {
+            self.alerts[name] = {
                 'inspect_link': inspect,
                 'threshold': threshold,
                 'float_min': fmin,
@@ -661,7 +718,8 @@ class PriceCheckerGUI:
                 'notify_once': notify_var.get(),
                 'last_notified_price': data.get('last_notified_price'),
             }
-            save_tracked(self.tracked)
+
+            save_tracked(self.alerts)
             win.destroy()
             self.toast('Alert saved', 'success')
 
@@ -670,10 +728,10 @@ class PriceCheckerGUI:
         self.root.wait_window(win)
 
     def delete_alert(self, name: str) -> None:
-        if name in self.tracked:
-            del self.tracked[name]
-            save_tracked(self.tracked)
-            self.show_tracked()
+        if name in self.alerts:
+            del self.alerts[name]
+            save_tracked(self.alerts)
+            self.show_tracked_alerts()
             self.toast('Alert deleted', 'info')
 
 # --- History Helpers ---
@@ -715,12 +773,12 @@ class PriceCheckerGUI:
             self.active_tracks.pop(name, None)
             if name in self.tracked:
                 self.tracked[name]['active'] = False
-                save_tracked(self.tracked)
+                save_price_tracks(self.tracked)
 
         stop_event = track_price(self.api_key, params, name, show_window, on_stop=_on_stop)
         self.active_tracks[name] = stop_event
         self.tracked[name] = {'params': params.copy(), 'active': True}
-        save_tracked(self.tracked)
+        save_price_tracks(self.tracked)
 
     def toggle_tracking(self, name: str) -> None:
         data = self.tracked.get(name)
@@ -737,13 +795,29 @@ class PriceCheckerGUI:
                 self.active_tracks.pop(name, None)
                 if name in self.tracked:
                     self.tracked[name]['active'] = False
-                    save_tracked(self.tracked)
+                    save_price_tracks(self.tracked)
 
             stop_event = track_price(self.api_key, data['params'], name, show_ui=False, on_stop=_on_stop)
             self.active_tracks[name] = stop_event
             data['active'] = True
             self.toast(f'Tracking resumed for {name}', 'success')
-        save_tracked(self.tracked)
+        save_price_tracks(self.tracked)
+
+    def delete_tracking(self, name: str) -> None:
+        data = self.tracked.pop(name, None)
+        if data:
+            ev = self.active_tracks.pop(name, None)
+            if ev:
+                ev.set()
+            save_price_tracks(self.tracked)
+            fname = f"track_{name.replace(' ', '_').replace('|', '_')}.csv"
+            if os.path.exists(fname):
+                try:
+                    os.remove(fname)
+                except OSError:
+                    pass
+            self.toast(f'Removed tracking for {name}', 'danger')
+            self.show_tracked_items()
 
     def open_csv(self, name: str) -> None:
         fname = f"track_{name.replace(' ', '_').replace('|', '_')}.csv"
@@ -772,9 +846,24 @@ class PriceCheckerGUI:
         ttk.Button(btn_frame, textvariable=btn_txt, command=toggle).pack(side='left', padx=5)
         ttk.Button(btn_frame, text='Close', command=win.destroy).pack(side='right')
 
-    def show_tracked(self) -> None:
+    def show_tracked_items(self) -> None:
         self.clear_content()
         if not self.tracked:
+            ttk.Label(self.content, text='No tracked alerts').pack(pady=10)
+            return
+        ttk.Label(self.content, text='Tracked Items', font=('Helvetica', 14, 'bold')).pack(pady=(0, 10))
+        for name, data in self.tracked.items():
+            row = ttk.Frame(self.content)
+            row.pack(fill='x', pady=2)
+            ttk.Label(row, text=name).pack(side='left')
+            ttk.Button(row, text='Delete', command=lambda n=name: self.delete_tracking(n), bootstyle='danger').pack(side='right')
+            ttk.Button(row, text='Open CSV', command=lambda n=name: self.open_csv(n)).pack(side='right', padx=5)
+            btn_text = 'Pause' if data.get('active') else 'Resume'
+            ttk.Button(row, text=btn_text, command=lambda n=name: self.toggle_tracking(n)).pack(side='right', padx=5)
+
+    def show_tracked_alerts(self) -> None:
+        self.clear_content()
+        if not self.alerts:
             ttk.Label(self.content, text='No tracked alerts').pack(pady=10)
             return
         columns = ['Skin', 'Threshold', 'Float Range', 'Notify Once']
@@ -783,7 +872,7 @@ class PriceCheckerGUI:
             tree.heading(col, text=col)
             tree.column(col, width=150, anchor='w')
         tree.pack(fill='both', expand=True)
-        for name, data in self.tracked.items():
+        for name, data in self.alerts.items():
             thr = f"${data.get('threshold',0):.2f}"
             frange = f"{data.get('float_min',0)}-{data.get('float_max',1)}"
             once = 'Yes' if data.get('notify_once') else 'No'
