@@ -52,7 +52,7 @@ def record_request() -> None:
 CONFIG_FILE = 'csfloat_config.json'
 ITEM_DB_FILE = 'cs2_items.json'
 HISTORY_FILE = 'search_history.json'
-TRACK_FILE = 'tracked_items.json'
+TRACKED_SEARCH_FILE = 'tracked_searches.json'
 
 
 def load_item_names(path: str = ITEM_DB_FILE):
@@ -92,20 +92,29 @@ def save_history(data: list) -> None:
         json.dump(data, fh)
 
 
-def load_tracked() -> dict:
-    """Load alert definitions from disk."""
-    if os.path.exists(TRACK_FILE):
+SEARCH_INTERVAL = 300  # seconds between automatic search checks
+
+
+def make_search_key(params: dict) -> str:
+    """Create a display key for a search based on name and wear."""
+    name = params.get('market_hash_name', 'Unknown')
+    wear = params.get('wear')
+    return f"{name} ({wear})" if wear else name
+
+def load_tracked_searches() -> dict:
+    """Load search alert definitions from disk."""
+    if os.path.exists(TRACKED_SEARCH_FILE):
         try:
-            with open(TRACK_FILE, 'r', encoding='utf-8') as fh:
+            with open(TRACKED_SEARCH_FILE, 'r', encoding='utf-8') as fh:
                 return json.load(fh)
         except Exception:
             return {}
     return {}
 
 
-def save_tracked(data: dict) -> None:
-    """Persist alert definitions to disk."""
-    with open(TRACK_FILE, 'w', encoding='utf-8') as fh:
+def save_tracked_searches(data: dict) -> None:
+    """Persist search alert definitions to disk."""
+    with open(TRACKED_SEARCH_FILE, 'w', encoding='utf-8') as fh:
         json.dump(data, fh)
 
 
@@ -302,13 +311,16 @@ class PriceCheckerGUI:
         self.last_filters: dict = self.cfg.get('last_filters', {})
         self.api_key = get_api_key(self.cfg, root)
         self.history = load_history()
-        self.alerts = load_tracked()
+        self.search_alerts = load_tracked_searches()
         self.tracked = load_price_tracks()
         self.active_tracks: dict[str, threading.Event] = {}
+        self.search_threads: dict[str, threading.Event] = {}
         self.style = ttk.Style()
         self.status_var = tk.StringVar()
         self.build_main()
         self.last_refresh_time: str | None = None
+        for key in list(self.search_alerts.keys()):
+            self.start_search_checker(key)
         self.update_status()
         try:
             self.root.attributes('-alpha', 0.0)
@@ -560,17 +572,17 @@ class PriceCheckerGUI:
     def show_results(self, listings: list, params: dict) -> None:
         self.clear_content()
 
-        columns = ['Name', 'Wear', 'Float', 'Price', 'Type', 'Time left', 'Track']
+        columns = ['Name', 'Wear', 'Float', 'Price', 'Type', 'Time left']
         tree = ttk.Treeview(self.content, columns=columns, show='headings', bootstyle='success')
         for col in columns:
             tree.heading(col, text=col, command=lambda c=col: self._sort(tree, c, False))
-            anchor = 'w' if col in {'Name', 'Wear', 'Type', 'Time left', 'Track'} else 'e'
+            anchor = 'w' if col in {'Name', 'Wear', 'Type', 'Time left'} else 'e'
             tree.column(col, anchor=anchor, width=120)
         tree.column('Name', width=250)
-        tree.column('Track', width=80)
 
         id_map: dict[str, str] = {}
-        listing_map: dict[str, dict] = {}
+        search_key = make_search_key(params)
+        settings = self.search_alerts.get(search_key)
 
         for item in listings:
             name = item.get('item', {}).get('market_hash_name')
@@ -592,26 +604,25 @@ class PriceCheckerGUI:
                 or item.get('expires_at')
             )
             auction_info = 'Auction' if is_auction else 'Buy now'
-            iid = tree.insert('', 'end', values=(name, wear_name, float_val, price, auction_info, time_left or '', 'Track'))
+            iid = tree.insert('', 'end', values=(name, wear_name, float_val, price, auction_info, time_left or ''))
             if item.get('id'):
                 id_map[iid] = item['id']
-            listing_map[iid] = item
-
-            settings = self.alerts.get(name)
 
             if settings and isinstance(price_cents, (int, float)) and isinstance(float_val, (int, float)):
                 price_val = price_cents / 100
-                if price_val <= settings.get('threshold', float('inf')) and settings.get('float_min', 0) <= float_val <= settings.get('float_max', 1):
+                if price_val <= settings.get('max_price', float('inf')) and settings.get('float_min', 0) <= float_val <= settings.get('float_max', 1):
                     tree.item(iid, tags=('match',))
                     tree.tag_configure('match', background='yellow')
-                    last = settings.get('last_notified_price')
+                    listing_id = str(item.get('id'))
+                    notified = settings.setdefault('notified', {})
+                    last = notified.get(listing_id)
                     should_notify = True
                     if settings.get('notify_once', True) and last is not None and price_val >= last:
                         should_notify = False
-                    if should_notify and price_val != last:
-                        show_desktop_notification(name, {'price': price_val, 'float': float_val})
-                        settings['last_notified_price'] = price_val
-                        save_tracked(self.alerts)
+                    if should_notify:
+                        show_desktop_notification(search_key, {'price': price_val, 'float': float_val})
+                        notified[listing_id] = price_val
+                        save_tracked_searches(self.search_alerts)
 
         tree.pack(fill='both', expand=True)
 
@@ -642,29 +653,16 @@ class PriceCheckerGUI:
             self.root.clipboard_append(url)
             self.toast('URL copied', 'success')
 
-        def start_track() -> None:
-            name = params.get('market_hash_name')
-            if not name:
-                self.toast('Search name required for tracking', 'warning')
-                return
-            self.start_tracking(name, params)
+        def track_search() -> None:
+            self.open_search_track_modal(params)
 
         btn_frame = ttk.Frame(self.content)
         btn_frame.pack(pady=10, anchor='e', fill='x')
         ttk.Button(btn_frame, text='Open Listing', command=open_listing, bootstyle='secondary').pack(side='left')
         ttk.Button(btn_frame, text='Copy URL', command=copy_url, bootstyle='secondary').pack(side='left', padx=5)
-
-        def on_tree_click(event) -> None:
-            col = tree.identify_column(event.x)
-            iid = tree.identify_row(event.y)
-            if col == f"#{len(columns)}" and iid:
-                item = listing_map.get(iid)
-                name = item.get('item', {}).get('market_hash_name') if item else None
-                if name and item:
-                    self.open_track_modal(name, item)
+        ttk.Button(btn_frame, text='Track This Search', command=track_search, bootstyle='warning').pack(side='right')
 
         tree.bind('<Double-1>', open_listing)
-        tree.bind('<Button-1>', on_tree_click)
     def _sort(self, tree: ttk.Treeview, col: str, reverse: bool) -> None:
         data = [(tree.set(k, col), k) for k in tree.get_children('')]
         try:
@@ -676,17 +674,18 @@ class PriceCheckerGUI:
         tree.heading(col, command=lambda: self._sort(tree, col, not reverse))
 
     
-    def open_track_modal(self, name: str, listing: dict | None = None) -> None:
-        data = self.alerts.get(name, {})
+    def open_search_track_modal(self, params: dict) -> None:
+        key = make_search_key(params)
+        data = self.search_alerts.get(key, {})
         win = ttk.Toplevel(self.root)
-        win.title(f'Track alert for: {name}')
+        win.title(f'Track search: {key}')
         try:
             win.attributes('-alpha', 0.0)
             fade_in(win)
         except tk.TclError:
             pass
         notify_var = tk.BooleanVar(value=data.get('notify_once', True))
-        thresh_var = tk.StringVar(value=str(data.get('threshold', '')))
+        thresh_var = tk.StringVar(value=str(data.get('max_price', '')))
         fmin_var = tk.StringVar(value=str(data.get('float_min', '')))
         fmax_var = tk.StringVar(value=str(data.get('float_max', '')))
 
@@ -707,19 +706,17 @@ class PriceCheckerGUI:
             except ValueError:
                 self.toast('Invalid number entered', 'danger')
                 return
-            inspect = data.get('inspect_link')
-            if listing:
-                inspect = listing.get('inspect_url') or listing.get('inspect_link') or inspect
-            self.alerts[name] = {
-                'inspect_link': inspect,
-                'threshold': threshold,
+            self.search_alerts[key] = {
+                'params': params.copy(),
+                'max_price': threshold,
                 'float_min': fmin,
                 'float_max': fmax,
                 'notify_once': notify_var.get(),
-                'last_notified_price': data.get('last_notified_price'),
+                'notified': data.get('notified', {}),
             }
 
-            save_tracked(self.alerts)
+            save_tracked_searches(self.search_alerts)
+            self.start_search_checker(key)
             win.destroy()
             self.toast('Alert saved', 'success')
 
@@ -727,10 +724,13 @@ class PriceCheckerGUI:
         win.grab_set()
         self.root.wait_window(win)
 
-    def delete_alert(self, name: str) -> None:
-        if name in self.alerts:
-            del self.alerts[name]
-            save_tracked(self.alerts)
+    def delete_search_alert(self, key: str) -> None:
+        data = self.search_alerts.pop(key, None)
+        if data is not None:
+            ev = self.search_threads.pop(key, None)
+            if ev:
+                ev.set()
+            save_tracked_searches(self.search_alerts)
             self.show_tracked_alerts()
             self.toast('Alert deleted', 'info')
 
@@ -819,6 +819,41 @@ class PriceCheckerGUI:
             self.toast(f'Removed tracking for {name}', 'danger')
             self.show_tracked_items()
 
+    def start_search_checker(self, key: str) -> None:
+        data = self.search_alerts.get(key)
+        if not data or key in self.search_threads:
+            return
+        stop_event = threading.Event()
+        self.search_threads[key] = stop_event
+
+        def _run() -> None:
+            while not stop_event.is_set():
+                res = query_listings(self.api_key, data.get('params', {}))
+                if res:
+                    listings = res.get('data') if isinstance(res, dict) else res
+                    for item in listings:
+                        price_cents = item.get('price')
+                        float_val = item.get('float', {}).get('float_value')
+                        listing_id = str(item.get('id'))
+                        if isinstance(price_cents, (int, float)) and isinstance(float_val, (int, float)):
+                            price_val = price_cents / 100
+                            if price_val <= data.get('max_price', float('inf')) and data.get('float_min', 0) <= float_val <= data.get('float_max', 1):
+                                notified = data.setdefault('notified', {})
+                                last = notified.get(listing_id)
+                                should_notify = True
+                                if data.get('notify_once', True) and last is not None and price_val >= last:
+                                    should_notify = False
+                                if should_notify:
+                                    show_desktop_notification(key, {'price': price_val, 'float': float_val})
+                                    notified[listing_id] = price_val
+                                    save_tracked_searches(self.search_alerts)
+                for _ in range(SEARCH_INTERVAL):
+                    if stop_event.is_set():
+                        break
+                    time.sleep(1)
+
+        threading.Thread(target=_run, daemon=True).start()
+
     def open_csv(self, name: str) -> None:
         fname = f"track_{name.replace(' ', '_').replace('|', '_')}.csv"
         win = ttk.Toplevel(self.root)
@@ -863,17 +898,17 @@ class PriceCheckerGUI:
 
     def show_tracked_alerts(self) -> None:
         self.clear_content()
-        if not self.alerts:
+        if not self.search_alerts:
             ttk.Label(self.content, text='No tracked alerts').pack(pady=10)
             return
-        columns = ['Skin', 'Threshold', 'Float Range', 'Notify Once']
+        columns = ['Search', 'Max Price', 'Float Range', 'Notify Once']
         tree = ttk.Treeview(self.content, columns=columns, show='headings', bootstyle='info')
         for col in columns:
             tree.heading(col, text=col)
             tree.column(col, width=150, anchor='w')
         tree.pack(fill='both', expand=True)
-        for name, data in self.alerts.items():
-            thr = f"${data.get('threshold',0):.2f}"
+        for name, data in self.search_alerts.items():
+            thr = f"${data.get('max_price',0):.2f}"
             frange = f"{data.get('float_min',0)}-{data.get('float_max',1)}"
             once = 'Yes' if data.get('notify_once') else 'No'
             tree.insert('', 'end', values=(name, thr, frange, once))
@@ -887,7 +922,9 @@ class PriceCheckerGUI:
                 self.toast('No alert selected', 'warning')
                 return
             name = tree.item(sel[0])['values'][0]
-            self.open_track_modal(name)
+            data = self.search_alerts.get(name)
+            if data:
+                self.open_search_track_modal(data.get('params', {}))
 
         def delete() -> None:
             sel = tree.selection()
@@ -895,7 +932,7 @@ class PriceCheckerGUI:
                 self.toast('No alert selected', 'warning')
                 return
             name = tree.item(sel[0])['values'][0]
-            self.delete_alert(name)
+            self.delete_search_alert(name)
 
         ttk.Button(btn_frame, text='Edit', command=edit, bootstyle='secondary').pack(side='left')
         ttk.Button(btn_frame, text='Delete', command=delete, bootstyle='danger').pack(side='left', padx=5)
