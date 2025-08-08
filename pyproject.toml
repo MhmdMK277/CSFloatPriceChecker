@@ -12,6 +12,7 @@ requires-python = ">=3.10"
 dependencies = [
     "requests",
     "ttkbootstrap>=1.10.1",
+    "matplotlib",
 ]
 
 [project.scripts]

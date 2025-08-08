@@ -1,3 +1,4 @@
 requests
 ttkbootstrap==1.10.1
 plyer
+matplotlib
