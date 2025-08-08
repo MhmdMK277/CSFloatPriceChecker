@@ -6,6 +6,7 @@ import time
 from datetime import datetime
 import logging
 import queue
+import csv
 from typing import Callable
 import tkinter as tk
 from tkinter import messagebox
@@ -14,8 +15,14 @@ import ttkbootstrap as ttk
 from ttkbootstrap.toast import ToastNotification
 from ttkbootstrap.icons import Emoji
 from ttkbootstrap.tooltip import ToolTip
-import requests
-
+from .api import (
+    query_listings,
+    fetch_lowest_listing,
+    rate_limit_interval,
+    REQUEST_TIMES,
+    RATE_LIMIT_HIT,
+    API_RATE_LIMIT,
+)
 from .notification import show_desktop_notification
 
 
@@ -39,36 +46,6 @@ logging.basicConfig(
     format='%(asctime)s %(levelname)s:%(message)s'
 )
 logger = logging.getLogger(__name__)
-
-# Track API request timestamps for rate information
-REQUEST_TIMES: list[float] = []
-
-# Default API rate limit (requests per minute); updated dynamically
-API_RATE_LIMIT: int = 60
-
-
-def update_rate_limit(headers: dict) -> None:
-    """Update the global API rate limit from response headers."""
-    global API_RATE_LIMIT
-    try:
-        limit = int(headers.get('X-RateLimit-Limit', API_RATE_LIMIT))
-        if limit > 0:
-            API_RATE_LIMIT = limit
-    except (TypeError, ValueError):
-        pass
-
-
-def rate_limit_interval() -> float:
-    """Return the recommended delay between requests based on the limit."""
-    return 60.0 / API_RATE_LIMIT if API_RATE_LIMIT else 6.0
-
-
-def record_request() -> None:
-    """Record a request timestamp and prune entries older than a minute."""
-    now = time.time()
-    REQUEST_TIMES.append(now)
-    while REQUEST_TIMES and now - REQUEST_TIMES[0] > 60:
-        REQUEST_TIMES.pop(0)
 
 CONFIG_FILE = 'csfloat_config.json'
 ITEM_DB_FILE = 'cs2_items.json'
@@ -385,7 +362,10 @@ class PriceCheckerGUI:
         """Update the status bar with current request rate and last refresh."""
         rate = len([t for t in REQUEST_TIMES if time.time() - t <= 60])
         last = self.last_refresh_time or 'N/A'
-        self.status_var.set(f'Requests/min: {rate} | Last refresh: {last}')
+        warn = ' | Rate limit reached' if RATE_LIMIT_HIT else ''
+        self.status_var.set(
+            f'Requests/min: {rate}/{API_RATE_LIMIT} | Last refresh: {last}{warn}'
+        )
 
     def build_main(self) -> None:
         self.root.title('CSFloat Price Checker')
@@ -805,91 +785,117 @@ class PriceCheckerGUI:
             self.toast('No items to search', 'warning')
             return
         def worker() -> None:
-            results: list[dict] = []
+            summary: list[dict] = []
             interval = rate_limit_interval()
             for idx, entry in enumerate(self.bulk_items):
                 params = entry['params'].copy()
-                params['limit'] = 1
-                params['sort_by'] = 'lowest_price'
+                name = params.get('market_hash_name', '')
+                filters = params.copy()
+                filters.pop('market_hash_name', None)
                 start = time.time()
+                res = fetch_lowest_listing(self.api_key, name, filters)
+                if RATE_LIMIT_HIT:
+                    self.root.after(0, lambda: self.toast('API rate limit reached', 'warning'))
+                if res is None:
+                    summary.append({'item': name, 'price_usd': None, 'url': '-', 'listing_id': '', 'is_auction': False})
+                    self.root.after(0, lambda n=name: self.toast(f'No results for: {n}', 'warning'))
+                else:
+                    summary.append(res)
                 data = query_listings(self.api_key, params)
+                if RATE_LIMIT_HIT:
+                    self.root.after(0, lambda: self.toast('API rate limit reached', 'warning'))
                 if data:
                     listings = data.get('data') if isinstance(data, dict) else data
                     if listings:
-                        item = listings[0]
-                        price_cents = item.get('price')
-                        float_val = item.get('float', {}).get('float_value')
-                        listing_id = item.get('id')
-                        price = price_cents / 100 if isinstance(price_cents, (int, float)) else None
-                        results.append({
-                            'name': params.get('market_hash_name', ''),
-                            'price': price,
-                            'float': float_val,
-                            'id': listing_id,
-                            'params': params,
-                        })
+                        self.root.after(0, lambda l=listings, p=params: self.show_results_window(l, p))
                 self.last_refresh_time = datetime.now().strftime('%H:%M:%S')
                 self.root.after(0, self.update_status)
                 elapsed = time.time() - start
                 if idx < len(self.bulk_items) - 1:
                     time.sleep(max(0, interval - elapsed))
-            self.root.after(0, lambda: self.show_bulk_results(results))
+            total = round(
+                sum(r['price_usd'] for r in summary if isinstance(r.get('price_usd'), (int, float))),
+                2,
+            )
+            self.root.after(0, lambda: self.show_bulk_summary(summary, total))
 
         threading.Thread(target=worker, daemon=True).start()
 
-    def show_bulk_results(self, results: list[dict]) -> None:
+    def show_bulk_summary(self, summary: list[dict], grand_total: float) -> None:
         win = ttk.Toplevel(self.root)
-        win.title('Bulk Search Results')
+        win.title('Bulk Summary')
         try:
             win.attributes('-alpha', 0.0)
             fade_in(win)
         except tk.TclError:
             pass
-        frame = ttk.Frame(win, padding=10)
+
+        frame = ttk.Frame(win, padding=12)
         frame.pack(fill='both', expand=True)
 
-        tree = ttk.Treeview(frame, columns=('item', 'price', 'float'), show='headings')
+        columns = ('item', 'price', 'link')
+        tree = ttk.Treeview(frame, columns=columns, show='headings')
         tree.heading('item', text='Item')
-        tree.heading('price', text='Lowest Price')
-        tree.heading('float', text='Float')
-        tree.column('item', width=300)
+        tree.heading('price', text='Lowest Price (USD)')
+        tree.heading('link', text='Link')
+        tree.column('item', width=260)
+        tree.column('price', width=140, anchor='e')
+        tree.column('link', width=300)
         tree.pack(fill='both', expand=True)
 
-        for res in results:
-            price = f"${res['price']:.2f}" if isinstance(res['price'], (int, float)) else ''
-            float_val = res['float'] if res['float'] is not None else ''
-            tree.insert('', 'end', values=(res['name'], price, float_val))
+        light = 'dark' not in self.theme
+        tree.tag_configure('odd', background='#f6f6f6' if light else '#2b2b2b')
+        tree.tag_configure('even', background='')
 
-        lowest = min((r['price'] for r in results if isinstance(r['price'], (int, float))), default=None)
-        if lowest is not None:
-            ttk.Label(frame, text=f'Overall lowest price: ${lowest:.2f}').pack(anchor='w', pady=5)
+        for idx, row in enumerate(summary):
+            price = (
+                f"${row['price_usd']:.2f}" if isinstance(row.get('price_usd'), (int, float)) else '-' 
+            )
+            url = row.get('url') or '-'
+            tag = 'odd' if idx % 2 else 'even'
+            tree.insert('', 'end', values=(row.get('item', ''), price, url), tags=(tag,))
 
-        def open_listing(event=None) -> None:
+        def open_row(event=None) -> None:
             sel = tree.selection()
             if not sel:
-                self.toast('No item selected', 'warning')
                 return
             idx = tree.index(sel[0])
-            listing_id = results[idx].get('id')
-            if listing_id:
-                webbrowser.open_new_tab(f'https://csfloat.com/item/{listing_id}')
+            url = summary[idx].get('url')
+            if url and url != '-':
+                webbrowser.open_new_tab(url)
 
-        def track_selected() -> None:
-            sel = tree.selection()
-            if not sel:
-                self.toast('No item selected', 'warning')
-                return
-            idx = tree.index(sel[0])
-            params = results[idx].get('params', {})
-            self.open_search_track_modal(params)
+        tree.bind('<Double-1>', open_row)
+        tree.bind('<Return>', open_row)
+
+        ttk.Label(frame, text=f'Grand Total: ${grand_total:.2f}').pack(anchor='e', pady=5)
+
+        def copy_total() -> None:
+            self.root.clipboard_clear()
+            self.root.clipboard_append(str(grand_total))
+            self.toast('Total copied', 'success')
+
+        def export_csv() -> None:
+            fname = f"bulk_summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            with open(fname, 'w', newline='', encoding='utf-8') as fh:
+                writer = csv.DictWriter(
+                    fh, fieldnames=['item', 'price_usd', 'url', 'listing_id', 'is_auction']
+                )
+                writer.writeheader()
+                for row in summary:
+                    writer.writerow(row)
+            self.toast(f'Exported to {fname}', 'info')
+
+        def open_all() -> None:
+            for row in summary:
+                url = row.get('url')
+                if url and url != '-':
+                    webbrowser.open_new_tab(url)
 
         btn_frame = ttk.Frame(frame)
-        btn_frame.pack(pady=10, anchor='e', fill='x')
-        ttk.Button(btn_frame, text='Open Listing', command=open_listing, bootstyle='secondary').pack(side='left')
-        ttk.Button(btn_frame, text='Track Selected', command=track_selected, bootstyle='warning').pack(side='right')
-
-        tree.bind('<Double-1>', open_listing)
-        tree.bind('<Return>', open_listing)
+        btn_frame.pack(anchor='e', pady=5, fill='x')
+        ttk.Button(btn_frame, text='Copy Total', command=copy_total, bootstyle='info-outline').pack(side='left')
+        ttk.Button(btn_frame, text='Export CSV', command=export_csv, bootstyle='secondary-outline').pack(side='left', padx=5)
+        ttk.Button(btn_frame, text='Open All Lowest Listings', command=open_all, bootstyle='success-outline').pack(side='left')
 
     def perform_search(
         self,
@@ -904,6 +910,8 @@ class PriceCheckerGUI:
 
         def worker() -> None:
             data = query_listings(self.api_key, params)
+            if RATE_LIMIT_HIT:
+                self.root.after(0, lambda: self.toast('API rate limit reached', 'warning'))
             if data is not None:
                 self.last_refresh_time = datetime.now().strftime('%H:%M:%S')
             self.root.after(0, lambda: display_results(data))
@@ -957,7 +965,11 @@ class PriceCheckerGUI:
         search_key = make_search_key(params)
         settings = self.tracked_items.get(search_key)
 
-        for item in listings:
+        light = 'dark' not in self.theme
+        tree.tag_configure('odd', background='#f6f6f6' if light else '#2b2b2b')
+        tree.tag_configure('even', background='')
+
+        for idx, item in enumerate(listings):
             name = item.get('item', {}).get('market_hash_name')
             price_cents = item.get('price')
             price = f"${price_cents/100:.2f}" if isinstance(price_cents, (int, float)) else price_cents
@@ -977,7 +989,8 @@ class PriceCheckerGUI:
                 or item.get('expires_at')
             )
             auction_info = 'Auction' if is_auction else 'Buy now'
-            iid = tree.insert('', 'end', values=(name, wear_name, float_val, price, auction_info, time_left or ''))
+            tag = 'odd' if idx % 2 else 'even'
+            iid = tree.insert('', 'end', values=(name, wear_name, float_val, price, auction_info, time_left or ''), tags=(tag,))
             if item.get('id'):
                 id_map[iid] = item['id']
 
