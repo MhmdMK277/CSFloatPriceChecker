@@ -8,7 +8,7 @@ import logging
 import queue
 import tkinter as tk
 from tkinter import ttk
-import requests
+from .api import query_listings
 
 LOG_FILE = os.path.join(os.path.dirname(__file__), 'csfloat.log')
 logging.basicConfig(
@@ -213,25 +213,6 @@ def search_options(params: dict) -> bool:
             return False
         else:
             print('Invalid option')
-
-
-def query_listings(key: str, params: dict):
-    """Query CSFloat listings endpoint with provided parameters."""
-    url = 'https://csfloat.com/api/v1/listings'
-    params = params.copy()
-    params.setdefault('limit', 50)
-    headers = {'Authorization': key}
-    logger.info('Request params: %s', params)
-    try:
-        resp = requests.get(url, params=params, headers=headers, timeout=10)
-        logger.info('Response status: %s', resp.status_code)
-        resp.raise_for_status()
-        logger.info('Response body: %s', resp.text[:200])
-        return resp.json()
-    except Exception as exc:
-        logger.exception('Failed to query API: %s', exc)
-        print(f'Failed to query API: {exc}')
-        return None
 
 
 def track_price(key: str, params: dict, name: str) -> None:
