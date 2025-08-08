@@ -13,6 +13,7 @@ import webbrowser
 import ttkbootstrap as ttk
 from ttkbootstrap.toast import ToastNotification
 from ttkbootstrap.icons import Icon
+from ttkbootstrap.tooltip import ToolTip
 import requests
 
 from .notification import show_desktop_notification
@@ -318,6 +319,12 @@ class PriceCheckerGUI:
     def __init__(self, root: ttk.Window) -> None:
         self.root = root
         self.cfg = load_config()
+        self.theme = self.cfg.get('theme', 'darkly')
+        try:
+            self.style = ttk.Style(theme=self.theme)
+        except Exception:
+            self.style = ttk.Style()
+            self.style.theme_use(self.theme)
         self.last_filters: dict = self.cfg.get('last_filters', {})
         self.api_key = get_api_key(self.cfg, root)
         self.history = load_history()
@@ -325,7 +332,6 @@ class PriceCheckerGUI:
         self.active_tracks: dict[str, threading.Event] = {}
         self.search_threads: dict[str, threading.Event] = {}
         self.bulk_items: list[dict] = []
-        self.style = ttk.Style()
         self.status_var = tk.StringVar()
         self.build_main()
         self.last_refresh_time: str | None = None
@@ -358,17 +364,19 @@ class PriceCheckerGUI:
     def build_main(self) -> None:
         self.root.title('CSFloat Price Checker')
         self.root.geometry('900x600')
+        self.root.rowconfigure(0, weight=1)
+        self.root.columnconfigure(1, weight=1)
         self.style.configure('TButton', font=('Helvetica', 11))
         self.style.configure('TLabel', font=('Helvetica', 11))
 
         self.sidebar = ttk.Frame(self.root, padding=10)
-        self.sidebar.pack(side='left', fill='y')
+        self.sidebar.grid(row=0, column=0, sticky='ns')
 
         self.content = ttk.Frame(self.root, padding=10)
-        self.content.pack(side='left', fill='both', expand=True)
+        self.content.grid(row=0, column=1, sticky='nsew')
 
         self.status = ttk.Label(self.root, textvariable=self.status_var, anchor='w')
-        self.status.pack(side='bottom', fill='x')
+        self.status.grid(row=1, column=0, columnspan=2, sticky='ew')
 
         # icons
         self.info_img = tk.PhotoImage(data=Icon.info)
@@ -412,6 +420,14 @@ class PriceCheckerGUI:
             bootstyle='danger',
         ).pack(pady=5, fill='x')
 
+        ttk.Separator(self.sidebar).pack(fill='x', pady=5)
+        ttk.Button(
+            self.sidebar,
+            text='Toggle Theme',
+            command=self.toggle_theme,
+            bootstyle='light',
+        ).pack(pady=5, fill='x')
+
     def replace_key(self) -> None:
         new_key = tk.simpledialog.askstring('API Key', 'Enter new API key:', parent=self.root)
         if new_key:
@@ -429,6 +445,13 @@ class PriceCheckerGUI:
         else:
             self.toast('No API key stored', 'warning')
 
+    def toggle_theme(self) -> None:
+        new_theme = 'flatly' if self.theme == 'darkly' else 'darkly'
+        self.style.theme_use(new_theme)
+        self.theme = new_theme
+        self.cfg['theme'] = new_theme
+        save_config(self.cfg)
+
     def show_search(self) -> None:
         if not self.api_key:
             self.api_key = get_api_key(self.cfg, self.root)
@@ -437,20 +460,24 @@ class PriceCheckerGUI:
 
         self.clear_content()
         frame = self.content
+        frame.columnconfigure(1, weight=1)
 
         params = {}
 
-        ttk.Label(frame, text='Item Type:').grid(row=0, column=0, sticky='e')
+        ttk.Label(frame, text='Item Type:').grid(row=0, column=0, sticky='e', pady=2)
         item_type_var = tk.StringVar(value=self.last_filters.get('item_type', 'Skin'))
-        ttk.Combobox(frame, textvariable=item_type_var, values=list(ITEM_TYPES)).grid(row=0, column=1, sticky='w')
+        item_type_cb = ttk.Combobox(frame, textvariable=item_type_var, values=list(ITEM_TYPES))
+        item_type_cb.grid(row=0, column=1, sticky='ew', pady=2)
+        ToolTip(item_type_cb, text='Choose the item category to search.')
 
-        ttk.Label(frame, text='Item Name:').grid(row=1, column=0, sticky='e')
+        ttk.Label(frame, text='Item Name:').grid(row=1, column=0, sticky='e', pady=2)
         name_var = tk.StringVar(value=self.last_filters.get('name', ''))
         name_entry = ttk.Entry(frame, textvariable=name_var, width=40)
-        name_entry.grid(row=1, column=1, sticky='w')
+        name_entry.grid(row=1, column=1, sticky='ew', pady=2)
+        ToolTip(name_entry, text='Enter the market name of the item.')
 
         suggest_box = tk.Listbox(frame, height=5, width=40)
-        suggest_box.grid(row=2, column=1, sticky='w')
+        suggest_box.grid(row=2, column=1, sticky='ew')
         suggest_box.grid_remove()
 
         def update_suggestions(event=None):
@@ -472,28 +499,40 @@ class PriceCheckerGUI:
         name_entry.bind('<KeyRelease>', update_suggestions)
         suggest_box.bind('<<ListboxSelect>>', select_suggestion)
 
-        ttk.Label(frame, text='Wear:').grid(row=3, column=0, sticky='e')
+        ttk.Label(frame, text='Wear:').grid(row=3, column=0, sticky='e', pady=2)
         wear_var = tk.StringVar(value=self.last_filters.get('wear', ''))
-        ttk.Combobox(frame, textvariable=wear_var, values=WEAR_LIST).grid(row=3, column=1, sticky='w')
+        wear_cb = ttk.Combobox(frame, textvariable=wear_var, values=WEAR_LIST)
+        wear_cb.grid(row=3, column=1, sticky='ew', pady=2)
+        ToolTip(wear_cb, text='Select a specific wear level.')
 
-        ttk.Label(frame, text='Min Float:').grid(row=4, column=0, sticky='e')
+        ttk.Label(frame, text='Min Float:').grid(row=4, column=0, sticky='e', pady=2)
         min_float_var = tk.StringVar(value=str(self.last_filters.get('min_float', '')))
-        ttk.Entry(frame, textvariable=min_float_var, width=10).grid(row=4, column=1, sticky='w')
+        min_entry = ttk.Entry(frame, textvariable=min_float_var, width=10)
+        min_entry.grid(row=4, column=1, sticky='w', pady=2)
+        ToolTip(min_entry, text='Minimum acceptable float value.')
 
-        ttk.Label(frame, text='Max Float:').grid(row=5, column=0, sticky='e')
+        ttk.Label(frame, text='Max Float:').grid(row=5, column=0, sticky='e', pady=2)
         max_float_var = tk.StringVar(value=str(self.last_filters.get('max_float', '')))
-        ttk.Entry(frame, textvariable=max_float_var, width=10).grid(row=5, column=1, sticky='w')
+        max_entry = ttk.Entry(frame, textvariable=max_float_var, width=10)
+        max_entry.grid(row=5, column=1, sticky='w', pady=2)
+        ToolTip(max_entry, text='Maximum acceptable float value.')
 
-        ttk.Label(frame, text='Category:').grid(row=6, column=0, sticky='e')
+        ttk.Label(frame, text='Category:').grid(row=6, column=0, sticky='e', pady=2)
         category_var = tk.StringVar(value=self.last_filters.get('category', 'Any'))
-        ttk.Combobox(frame, textvariable=category_var, values=list(CATEGORY_CHOICES)).grid(row=6, column=1, sticky='w')
+        category_cb = ttk.Combobox(frame, textvariable=category_var, values=list(CATEGORY_CHOICES))
+        category_cb.grid(row=6, column=1, sticky='ew', pady=2)
+        ToolTip(category_cb, text='Filter results by sub-category.')
 
-        ttk.Label(frame, text='Sort By:').grid(row=7, column=0, sticky='e')
+        ttk.Label(frame, text='Sort By:').grid(row=7, column=0, sticky='e', pady=2)
         sort_var = tk.StringVar(value=self.last_filters.get('sort_by', 'most_recent'))
-        ttk.Combobox(frame, textvariable=sort_var, values=SORT_OPTIONS).grid(row=7, column=1, sticky='w')
+        sort_cb = ttk.Combobox(frame, textvariable=sort_var, values=SORT_OPTIONS)
+        sort_cb.grid(row=7, column=1, sticky='ew', pady=2)
+        ToolTip(sort_cb, text='Choose how results are sorted.')
 
         include_auctions_var = tk.BooleanVar(value=self.last_filters.get('include_auctions', True))
-        ttk.Checkbutton(frame, text='Include Auctions', variable=include_auctions_var).grid(row=8, column=1, sticky='w')
+        include_chk = ttk.Checkbutton(frame, text='Include Auctions', variable=include_auctions_var)
+        include_chk.grid(row=8, column=1, sticky='w', pady=2)
+        ToolTip(include_chk, text='Toggle to include auction listings.')
 
         def search():
             params.clear()
@@ -544,7 +583,11 @@ class PriceCheckerGUI:
             save_config(self.cfg)
             self.perform_search(params)
 
-        ttk.Button(frame, text='Search', command=search, bootstyle='primary').grid(row=9, column=1, pady=10, sticky='e')
+        search_btn = ttk.Button(frame, text='Search', command=search, bootstyle='primary')
+        search_btn.grid(row=9, column=1, pady=10, sticky='e')
+        ToolTip(search_btn, text='Execute search (Enter)')
+        self.root.unbind('<Return>')
+        self.root.bind('<Return>', lambda e: search())
 
         if self.history:
             ttk.Label(frame, text='Recent Searches:').grid(row=10, column=0, sticky='ne')
@@ -783,16 +826,21 @@ class PriceCheckerGUI:
         ttk.Button(btn_frame, text='Track Selected', command=track_selected, bootstyle='warning').pack(side='right')
 
         tree.bind('<Double-1>', open_listing)
+        tree.bind('<Return>', open_listing)
 
     def perform_search(self, params: dict) -> None:
         if not params:
             return
 
         self.clear_content()
-        loading = ttk.Label(self.content, text='Searching...')
-        loading.pack(pady=10)
-        pb = ttk.Progressbar(self.content, mode='indeterminate', bootstyle='info-striped')
-        pb.pack(fill='x', padx=10)
+        overlay = ttk.Toplevel(self.root)
+        overlay.transient(self.root)
+        overlay.grab_set()
+        overlay.title('Searching')
+        overlay.geometry('200x100')
+        ttk.Label(overlay, text='Searching...').pack(pady=10)
+        pb = ttk.Progressbar(overlay, mode='indeterminate', bootstyle='info-striped')
+        pb.pack(fill='x', padx=20, pady=10)
         pb.start()
 
         def worker() -> None:
@@ -804,8 +852,7 @@ class PriceCheckerGUI:
 
         def display_results(data):
             pb.stop()
-            loading.destroy()
-            pb.destroy()
+            overlay.destroy()
             if not data:
                 self.toast('Query failed', 'danger')
                 return
@@ -825,8 +872,24 @@ class PriceCheckerGUI:
         for col in columns:
             tree.heading(col, text=col, command=lambda c=col: self._sort(tree, c, False))
             anchor = 'w' if col in {'Name', 'Wear', 'Type', 'Time left'} else 'e'
-            tree.column(col, anchor=anchor, width=120)
+            tree.column(col, anchor=anchor, width=120, stretch=True)
         tree.column('Name', width=250)
+
+        self.col_vars = {col: tk.BooleanVar(value=True) for col in columns}
+
+        def update_columns() -> None:
+            display = [c for c, v in self.col_vars.items() if v.get()]
+            tree['displaycolumns'] = display
+
+        menu = tk.Menu(tree, tearoff=0)
+        for col in columns:
+            menu.add_checkbutton(label=col, variable=self.col_vars[col], command=update_columns)
+
+        def show_menu(event):
+            menu.tk_popup(event.x_root, event.y_root)
+
+        tree.bind('<Button-3>', show_menu)
+        tree['displaycolumns'] = columns
 
         id_map: dict[str, str] = {}
         search_key = make_search_key(params)
@@ -906,6 +969,8 @@ class PriceCheckerGUI:
         ttk.Button(btn_frame, text='Track This Search', command=track_search, bootstyle='warning').pack(side='right')
 
         tree.bind('<Double-1>', open_listing)
+        tree.bind('<Return>', open_listing)
+        tree.bind('<Control-c>', lambda e: copy_url())
 
     def show_results_window(self, listings: list, params: dict) -> None:
         win = ttk.Toplevel(self.root)
@@ -1183,7 +1248,9 @@ class PriceCheckerGUI:
         self.show_tracked_items()
 
 def main() -> None:
-    root = ttk.Window(themename='morph')
+    cfg = load_config()
+    theme = cfg.get('theme', 'darkly')
+    root = ttk.Window(themename=theme)
     app = PriceCheckerGUI(root)
     root.mainloop()
 
