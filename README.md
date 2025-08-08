@@ -30,6 +30,19 @@ The script stores your API key in `csfloat_config.json` and lets you search list
 
 The GUI also offers a **Bulk Search** menu where you can configure multiple items, each with its own filters, and run all of the searches at once. Results for every item open in separate windows for easy comparison.
 
+### Price Groups
+
+Use **Price Groups** to track multiple skins at once. Create a group of skins, save it with a custom name and the application will display the lowest price for each skin along with the running total. Every refresh logs a timestamped price entry to a JSON file per skin. Select **View History** next to a skin to open a matplotlib chart showing how the price has evolved over time.
+
+Example history file:
+
+```json
+[
+  {"timestamp": "2024-01-01T12:00:00", "price": 123.45},
+  {"timestamp": "2024-01-01T13:00:00", "price": 120.00}
+]
+```
+
 After showing search results you can opt in to tracking. Two modes are available:
 
 1. **Alerts** – get notified when a listing meets your price or float filters.

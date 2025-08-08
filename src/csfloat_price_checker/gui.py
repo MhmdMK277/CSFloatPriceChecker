@@ -122,6 +122,8 @@ def make_search_key(params: dict) -> str:
     return f"{name} ({wear})" if wear else name
 
 TRACKED_ITEMS_FILE = 'tracked_items.json'
+GROUPS_FILE = 'tracking_groups.json'
+HISTORY_DIR = 'price_history'
 
 
 def load_tracked_items() -> dict:
@@ -138,6 +140,23 @@ def load_tracked_items() -> dict:
 def save_tracked_items(data: dict) -> None:
     """Persist tracked item definitions to disk."""
     with open(TRACKED_ITEMS_FILE, 'w', encoding='utf-8') as fh:
+        json.dump(data, fh)
+
+
+def load_groups() -> dict:
+    """Load saved tracking groups from disk."""
+    if os.path.exists(GROUPS_FILE):
+        try:
+            with open(GROUPS_FILE, 'r', encoding='utf-8') as fh:
+                return json.load(fh)
+        except Exception:
+            return {}
+    return {}
+
+
+def save_groups(data: dict) -> None:
+    """Persist tracking groups to disk."""
+    with open(GROUPS_FILE, 'w', encoding='utf-8') as fh:
         json.dump(data, fh)
 
 
@@ -335,6 +354,7 @@ class PriceCheckerGUI:
         self.api_key = get_api_key(self.cfg, root)
         self.history = load_history()
         self.tracked_items = load_tracked_items()
+        self.groups = load_groups()
         self.active_tracks: dict[str, threading.Event] = {}
         self.search_threads: dict[str, threading.Event] = {}
         self.bulk_items: list[dict] = []
@@ -404,6 +424,7 @@ class PriceCheckerGUI:
             'secondary-outline',
         )
         nav_button('Tracked Alerts', self.show_tracked_alerts, 'info-outline')
+        nav_button('Price Groups', self.show_multi_tracker, 'secondary-outline')
         nav_button(
             f"{Emoji.get('closed lock with key').char} Replace API Key",
             self.replace_key,
@@ -1260,6 +1281,161 @@ class PriceCheckerGUI:
 
         ttk.Button(btn_frame, textvariable=btn_txt, command=toggle).pack(side='left', padx=5)
         ttk.Button(btn_frame, text='Close', command=win.destroy).pack(side='right')
+
+    def show_multi_tracker(self) -> None:
+        """UI for tracking multiple skins and computing total price."""
+        self.clear_content()
+        ttk.Label(self.content, text='Price Groups', font=('Helvetica', 14, 'bold')).pack(pady=(0, 10))
+
+        groups = self.groups
+        selected: list[str] = []
+        price_vars: dict[str, tk.StringVar] = {}
+        total_var = tk.StringVar(value='Total Lowest Price: $0.00')
+
+        group_frame = ttk.Frame(self.content)
+        group_frame.pack(fill='x', pady=5)
+        ttk.Label(group_frame, text='Group:').pack(side='left')
+        group_name_var = tk.StringVar()
+        group_entry = ttk.Entry(group_frame, textvariable=group_name_var, width=20)
+        group_entry.pack(side='left', padx=5)
+        group_combo = ttk.Combobox(group_frame, values=list(groups.keys()), width=20)
+        group_combo.pack(side='left', padx=5)
+
+        def load_group() -> None:
+            name = group_combo.get()
+            if name in groups:
+                group_name_var.set(name)
+                selected.clear()
+                selected.extend(groups[name])
+                refresh_selected()
+                update_prices()
+
+        def save_group() -> None:
+            name = group_name_var.get().strip()
+            if name:
+                groups[name] = selected.copy()
+                save_groups(groups)
+                group_combo.config(values=list(groups.keys()))
+                self.toast('Group saved', 'success')
+
+        ttk.Button(group_frame, text='Load', command=load_group).pack(side='left', padx=5)
+        ttk.Button(group_frame, text='Save', command=save_group, bootstyle='success').pack(side='left', padx=5)
+
+        list_frame = ttk.Frame(self.content)
+        list_frame.pack(fill='both', expand=True, pady=5)
+
+        avail = tk.Listbox(list_frame, selectmode='extended')
+        for item in ITEM_NAMES:
+            avail.insert('end', item)
+        avail.pack(side='left', fill='both', expand=True)
+
+        btns = ttk.Frame(list_frame)
+        btns.pack(side='left', fill='y', padx=5)
+        tracked = tk.Listbox(list_frame, selectmode='extended')
+        tracked.pack(side='left', fill='both', expand=True)
+
+        def refresh_selected() -> None:
+            tracked.delete(0, 'end')
+            for name in selected:
+                tracked.insert('end', name)
+            rebuild_price_rows()
+
+        def add_items() -> None:
+            for idx in avail.curselection():
+                name = avail.get(idx)
+                if name not in selected:
+                    selected.append(name)
+            refresh_selected()
+
+        def remove_items() -> None:
+            for idx in reversed(tracked.curselection()):
+                selected.pop(idx)
+            refresh_selected()
+
+        ttk.Button(btns, text='Add →', command=add_items).pack(pady=5)
+        ttk.Button(btns, text='← Remove', command=remove_items).pack(pady=5)
+
+        price_frame = ttk.Frame(self.content)
+        price_frame.pack(fill='x', pady=10)
+
+        def rebuild_price_rows() -> None:
+            for child in price_frame.winfo_children():
+                child.destroy()
+            price_vars.clear()
+            for name in selected:
+                row = ttk.Frame(price_frame)
+                row.pack(fill='x', pady=2)
+                ttk.Label(row, text=name).pack(side='left')
+                pv = tk.StringVar(value='...')
+                price_vars[name] = pv
+                ttk.Label(row, textvariable=pv).pack(side='left', padx=10)
+                ttk.Button(row, text='View History', command=lambda n=name: view_history(n)).pack(side='right')
+
+        def log_price(name: str, price: float) -> None:
+            os.makedirs(HISTORY_DIR, exist_ok=True)
+            fname = os.path.join(HISTORY_DIR, f"{name.replace(' ', '_').replace('|', '_')}.json")
+            data = []
+            if os.path.exists(fname):
+                try:
+                    with open(fname, 'r', encoding='utf-8') as fh:
+                        data = json.load(fh)
+                except Exception:
+                    data = []
+            data.append({'timestamp': datetime.now().isoformat(), 'price': price})
+            with open(fname, 'w', encoding='utf-8') as fh:
+                json.dump(data, fh)
+
+        def view_history(name: str) -> None:
+            fname = os.path.join(HISTORY_DIR, f"{name.replace(' ', '_').replace('|', '_')}.json")
+            if not os.path.exists(fname):
+                self.toast('No history for this item', 'warning')
+                return
+            try:
+                with open(fname, 'r', encoding='utf-8') as fh:
+                    data = json.load(fh)
+            except Exception:
+                self.toast('Failed to load history', 'danger')
+                return
+            if not data:
+                self.toast('No history for this item', 'warning')
+                return
+            times = [datetime.fromisoformat(d['timestamp']) for d in data]
+            prices = [d['price'] for d in data]
+            import matplotlib.pyplot as plt
+            plt.figure()
+            plt.plot(times, prices, marker='o')
+            plt.title(name)
+            plt.xlabel('Time')
+            plt.ylabel('Price ($)')
+            plt.gcf().autofmt_xdate()
+            plt.tight_layout()
+            plt.show()
+
+        def update_prices() -> None:
+            total = 0.0
+            for name in selected:
+                params = {'market_hash_name': name, 'sort_by': 'lowest_price'}
+                res = query_listings(self.api_key, params)
+                price = None
+                if res and isinstance(res, dict):
+                    listings = res.get('data') or []
+                    prices = [it.get('price') for it in listings if isinstance(it.get('price'), (int, float))]
+                    if prices:
+                        price = min(prices) / 100
+                if price is not None:
+                    price_vars[name].set(f'$ {price:.2f}')
+                    total += price
+                    log_price(name, price)
+                else:
+                    price_vars[name].set('N/A')
+            total_var.set(f'Total Lowest Price: ${total:.2f}')
+            self.update_status()
+            self.root.after(60000, update_prices)
+
+        ttk.Label(self.content, textvariable=total_var, font=('Helvetica', 12, 'bold')).pack(pady=5)
+
+        rebuild_price_rows()
+        update_prices()
 
     def show_tracked_items(self) -> None:
         self.clear_content()
