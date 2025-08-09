@@ -30,6 +30,13 @@ The script stores your API key in `csfloat_config.json` and lets you search list
 
 The GUI also offers a **Bulk Search** menu where you can configure multiple items, each with its own filters, and run all of the searches at once. Results for every item open in separate windows for easy comparison.
 
+### Pricing an inventory dump
+
+The CLI provides a **Price inventory from file** option. Supply a JSON file
+containing a Steam inventory dump (like the example in the issue) and the
+script will look up the lowest `buy now` price for each item while matching the
+item's wear. Badges, medals and other collectibles are ignored.
+
 ### Price Groups
 
 Use **Price Groups** to track multiple skins at once. Create a group of skins, save it with a custom name and the application will display the lowest price for each skin along with the running total. Every refresh logs a timestamped price entry to a JSON file per skin. Select **View History** next to a skin to open a matplotlib chart showing how the price has evolved over time.

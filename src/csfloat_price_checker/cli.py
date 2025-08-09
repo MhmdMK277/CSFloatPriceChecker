@@ -8,7 +8,9 @@ import logging
 import queue
 import tkinter as tk
 from tkinter import ttk
-from .api import query_listings
+
+from .api import query_listings, fetch_lowest_listing, rate_limit_interval
+from .inventory import parse_inventory
 
 LOG_FILE = os.path.join(os.path.dirname(__file__), 'csfloat.log')
 logging.basicConfig(
@@ -370,6 +372,7 @@ def main():
         print('1. Search listings')
         print('2. Replace API key')
         print('3. Delete API key')
+        print('4. Price inventory from file')
         print('0. Exit')
         action = input('> ').strip()
         if action == '1':
@@ -424,6 +427,37 @@ def main():
                 logger.info('API key deleted by user')
             else:
                 print('No API key stored.')
+        elif action == '4':
+            key = get_api_key(cfg)
+            if not key:
+                continue
+            path = input('Enter path to inventory JSON file: ').strip()
+            if not path or not os.path.exists(path):
+                print('File not found.')
+                continue
+            try:
+                with open(path, 'r', encoding='utf-8') as fh:
+                    inv_data = json.load(fh)
+            except Exception as exc:
+                print(f'Failed to read inventory: {exc}')
+                continue
+            items = parse_inventory(inv_data)
+            if not items:
+                print('No tradable items found.')
+                continue
+            print(f'Found {len(items)} items. Querying prices...')
+            for name, wear in items:
+                filters = {'include_auctions': False}
+                if wear:
+                    filters['wear'] = wear
+                res = fetch_lowest_listing(key, name, filters)
+                if res:
+                    price = res['price_usd']
+                    url = res['url']
+                    print(f"{name} ({wear or 'Any'}): ${price:.2f} - {url}")
+                else:
+                    print(f"{name} ({wear or 'Any'}): no listing found")
+                time.sleep(rate_limit_interval())
         elif action == '0':
             logger.info('User exited application')
             break
