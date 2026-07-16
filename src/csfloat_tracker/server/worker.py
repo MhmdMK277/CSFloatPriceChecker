@@ -10,6 +10,7 @@ long.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from datetime import UTC, datetime
 
@@ -42,10 +43,8 @@ class Worker:
                 await self.tick()
             except Exception:
                 logger.exception("Worker tick failed")
-            try:
+            with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(self._stop.wait(), timeout=TICK_SECONDS)
-            except TimeoutError:
-                pass
         logger.info("Background worker stopped")
 
     async def tick(self) -> None:
@@ -170,9 +169,9 @@ class Worker:
         fv = listing.float_value
         if rule.get("max_float") is not None and (fv is None or fv > rule["max_float"]):
             return False
-        if rule.get("min_float") is not None and (fv is None or fv < rule["min_float"]):
-            return False
-        return True
+        return not (
+            rule.get("min_float") is not None and (fv is None or fv < rule["min_float"])
+        )
 
     # ------------------------------------------------------------------
     # Deal finder

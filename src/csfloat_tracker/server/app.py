@@ -8,6 +8,7 @@ serves the built frontend (when present) at ``/``.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -58,10 +59,8 @@ def create_app(*, ctx: AppContext | None = None, start_worker: bool = True) -> F
             for task in (worker_task, refresh_task):
                 if task:
                     task.cancel()
-                    try:
+                    with contextlib.suppress(Exception):
                         await task
-                    except (asyncio.CancelledError, Exception):
-                        pass
             await app.state.ctx.close()
 
     app = FastAPI(
