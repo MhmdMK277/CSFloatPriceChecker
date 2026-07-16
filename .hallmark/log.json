@@ -1,0 +1,13 @@
+[
+  {
+    "date": "2026-07-16",
+    "macrostructure": "none (app shell — side-rail workbench)",
+    "theme": "custom",
+    "theme_axes": "dark / grotesk-sans / warm",
+    "vibe": "terminal amber on CS2 navy, data-dense",
+    "enrichment": "none",
+    "nav": "N3 side-rail",
+    "footer": "none (app)",
+    "brief": "CSFloat Tracker · CS2 market intelligence web app"
+  }
+]

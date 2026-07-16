@@ -14,7 +14,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .. import __version__
@@ -92,7 +92,17 @@ def create_app(*, ctx: AppContext | None = None, start_worker: bool = True) -> F
 
     dist = _frontend_dist()
     if dist:
-        app.mount("/", StaticFiles(directory=dist, html=True), name="frontend")
+        app.mount("/assets", StaticFiles(directory=dist / "assets"), name="assets")
+        index = dist / "index.html"
+
+        @app.get("/{path:path}", include_in_schema=False)
+        async def spa(path: str):
+            # Client-side routes (e.g. /settings) all resolve to the SPA shell;
+            # real files in dist (favicons etc.) are served directly.
+            candidate = (dist / path).resolve()
+            if path and candidate.is_file() and candidate.is_relative_to(dist.resolve()):
+                return FileResponse(candidate)
+            return FileResponse(index)
     else:
 
         @app.get("/")
