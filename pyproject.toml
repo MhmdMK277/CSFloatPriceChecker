@@ -1,26 +1,75 @@
 [build-system]
-requires = ["setuptools>=61"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
-name = "csfloat-price-checker"
-version = "0.1.0"
-description = "CSFloat price checker CLI and GUI"
-authors = [{name = "Unknown", email = "example@example.com"}]
+name = "csfloat-tracker"
+version = "1.0.0"
+description = "Self-hosted CS2 market intelligence for CSFloat: search, price tracking, watchlists, alerts, deal finder, and inventory pricing."
 readme = "README.md"
-requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "MhmdMK277" }]
+requires-python = ">=3.11"
+keywords = ["cs2", "csfloat", "counter-strike", "skins", "market", "price-tracker"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Web Environment",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Games/Entertainment",
+]
 dependencies = [
-    "requests",
-    "ttkbootstrap>=1.10.1",
-    "matplotlib",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "httpx>=0.27",
+    "pydantic>=2.7",
+    "aiosqlite>=0.20",
+    "keyring>=25",
+    "typer>=0.12",
+    "rich>=13",
+    "rapidfuzz>=3.9",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=5",
+    "respx>=0.21",
+    "ruff>=0.6",
+]
+
+[project.urls]
+Homepage = "https://github.com/MhmdMK277/CSFloatPriceChecker"
+Issues = "https://github.com/MhmdMK277/CSFloatPriceChecker/issues"
+
 [project.scripts]
-csfloat-price = "csfloat_price_checker.cli:main"
-csfloat-price-gui = "csfloat_price_checker.gui:main"
+csfloat-tracker = "csfloat_tracker.cli:main"
 
-[tool.setuptools]
-package-dir = {"" = "src"}
+[tool.hatch.build.targets.wheel]
+packages = ["src/csfloat_tracker"]
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.hatch.build.targets.wheel.force-include]
+"data/cs2_items.json" = "csfloat_tracker/data/cs2_items.json"
+"data/graffiti.json" = "csfloat_tracker/data/graffiti.json"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.coverage.run]
+source = ["src/csfloat_tracker"]
+omit = ["src/csfloat_tracker/cli.py"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+ignore = ["E501"]

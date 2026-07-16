@@ -1,68 +1,7 @@
-# CSFloatPriceChecker
+# CSFloat Tracker
 
-A script that checks CSFloat Market listings with various filters.
-Prices are shown in US dollars rather than cents for easier reading.
-The GUI uses the `ttkbootstrap` theme library for a modern look.
+Self-hosted CS2 market intelligence for [CSFloat](https://csfloat.com): live search,
+price tracking, watchlists, alerts, deal finding and inventory pricing.
 
-## Installation
-
-Install the package in editable mode so the command line entry points become
-available:
-
-```bash
-pip install -e .
-```
-
-This exposes the `csfloat-price` and `csfloat-price-gui` commands.
-
-## Usage
-
-1. Run the interactive CLI:
-   ```bash
-   csfloat-price
-   ```
-2. Run the graphical interface:
-   ```bash
-   csfloat-price-gui
-   ```
-
-The script stores your API key in `csfloat_config.json` and lets you search listings by item type, wear, float range and more. It now also allows you to include or exclude auction listings from the results. The key is sent using the `Authorization` header as required by the CSFloat API. All requests and responses are logged to `csfloat.log` for troubleshooting.
-
-The GUI also offers a **Bulk Search** menu where you can configure multiple items, each with its own filters, and run all of the searches at once. Results for every item open in separate windows for easy comparison.
-
-### Pricing an inventory dump
-
-The CLI provides a **Price inventory from file** option. Supply a JSON file
-containing a Steam inventory dump (like the example in the issue) and the
-script will look up the lowest `buy now` price for each item while matching the
-item's wear. Badges, medals and other collectibles are ignored.
-
-### Price Groups
-
-Use **Price Groups** to track multiple skins at once. Create a group of skins, save it with a custom name and the application will display the lowest price for each skin along with the running total. Every refresh logs a timestamped price entry to a JSON file per skin. Select **View History** next to a skin to open a matplotlib chart showing how the price has evolved over time.
-
-Example history file:
-
-```json
-[
-  {"timestamp": "2024-01-01T12:00:00", "price": 123.45},
-  {"timestamp": "2024-01-01T13:00:00", "price": 120.00}
-]
-```
-
-After showing search results you can opt in to tracking. Two modes are available:
-
-1. **Alerts** – get notified when a listing meets your price or float filters.
-2. **Price evolution** – log every listing's price and float over time to `tracked_logs/<item>.csv`.
-
-You can enable either or both modes. When price tracking is enabled a small window opens showing progress; click **Stop** to cancel.
-
-The GUI remembers your last used filters. The results table supports column sorting and a **Copy URL** button to quickly copy the selected listing's link. A status bar shows how many requests were made in the last minute and the time of the most recent refresh. If the API returns a rate limit response, a warning toast is displayed.
-
-From the results window you can also open the selected listing in your web browser using the **Open Listing** button (or by double clicking a row).
-
-
-You can still run a one-off price check:
-```bash
-python -m csfloat_price_checker.api
-```
+> Full documentation is being renovated — see `docs/` and `legacy/README_original.md`
+> for the original prototype.
