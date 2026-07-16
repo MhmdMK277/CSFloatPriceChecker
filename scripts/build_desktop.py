@@ -25,14 +25,14 @@ from csfloat_tracker import __version__  # noqa: E402
 
 
 def run(cmd: list[str], cwd: Path | None = None) -> None:
-    print(f"→ {' '.join(cmd)}")
+    print(f"-> {' '.join(cmd)}")
     subprocess.run(cmd, cwd=cwd or ROOT, check=True)
 
 
 def build_frontend() -> None:
     npm = shutil.which("npm")
     if not npm:
-        raise SystemExit("npm not found — install Node.js ≥ 20 to build the frontend.")
+        raise SystemExit("npm not found - install Node.js >= 20 to build the frontend.")
     frontend = ROOT / "frontend"
     if not (frontend / "node_modules").exists():
         run([npm, "ci"], cwd=frontend)
@@ -40,7 +40,7 @@ def build_frontend() -> None:
 
 
 def make_icon(out: Path) -> None:
-    """Amber trend-line on navy, multi-size .ico — same mark as the tray icon."""
+    """Amber trend-line on navy, multi-size .ico - same mark as the tray icon."""
     from PIL import Image, ImageDraw
 
     size = 256
@@ -54,7 +54,7 @@ def make_icon(out: Path) -> None:
     d.ellipse([192, 64, 224, 96], fill=(232, 168, 76, 255))
     out.parent.mkdir(parents=True, exist_ok=True)
     img.save(out, sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
-    print(f"→ icon written to {out}")
+    print(f"-> icon written to {out}")
 
 
 def make_version_info(out: Path) -> None:
@@ -66,10 +66,10 @@ def make_version_info(out: Path) -> None:
   kids=[
     StringFileInfo([StringTable('040904B0', [
       StringStruct('ProductName', 'CSFloat Tracker'),
-      StringStruct('FileDescription', 'CSFloat Tracker — CS2 market intelligence'),
+      StringStruct('FileDescription', 'CSFloat Tracker - CS2 market intelligence'),
       StringStruct('FileVersion', '{__version__}'),
       StringStruct('ProductVersion', '{__version__}'),
-      StringStruct('LegalCopyright', 'MIT License — github.com/MhmdMK277/CSFloatPriceChecker'),
+      StringStruct('LegalCopyright', 'MIT License - github.com/MhmdMK277/CSFloatPriceChecker'),
       StringStruct('OriginalFilename', 'CSFloatTracker.exe')])]),
     VarFileInfo([VarStruct('Translation', [1033, 1200])])
   ]
@@ -77,7 +77,7 @@ def make_version_info(out: Path) -> None:
 """,
         encoding="utf-8",
     )
-    print(f"→ version info written to {out}")
+    print(f"-> version info written to {out}")
 
 
 def main() -> None:
@@ -104,7 +104,7 @@ def main() -> None:
 
     digest = hashlib.sha256(target.read_bytes()).hexdigest()
     (target.parent / f"{target.name}.sha256").write_text(f"{digest}  {target.name}\n")
-    print(f"\n✔ {target}")
+    print(f"\nOK {target}")
     print(f"  size:   {target.stat().st_size / 1e6:.1f} MB")
     print(f"  sha256: {digest}")
 

@@ -44,6 +44,8 @@ jobs:
           npm run build
 
       - name: Build executable
+        env:
+          PYTHONUTF8: "1"
         run: python scripts/build_desktop.py --skip-frontend
 
       - uses: actions/upload-artifact@v4
