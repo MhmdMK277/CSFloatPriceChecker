@@ -1,0 +1,11 @@
+services:
+  csfloat-tracker:
+    build: .
+    ports:
+      - "8422:8422"
+    volumes:
+      - tracker-data:/data
+    restart: unless-stopped
+
+volumes:
+  tracker-data:

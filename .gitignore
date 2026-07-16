@@ -15,6 +15,7 @@ coverage.xml
 # Node
 node_modules/
 frontend/dist/
+frontend/tsconfig.tsbuildinfo
 
 # App data (runtime state lives outside the repo, but guard against accidents)
 *.db

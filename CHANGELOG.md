@@ -1,0 +1,37 @@
+# Changelog
+
+## 1.0.0 — 2026-07-16
+
+Complete renovation of the original CLI/tkinter prototype into a self-hosted
+web application.
+
+### Added
+- Async CSFloat API client: header-aware per-endpoint rate limiting,
+  exponential backoff, TTL caching, typed error hierarchy
+- Item catalog built from CSFloat's public schema — 35,000+ market names with
+  per-wear reference prices, Doppler-phase merging, vanilla knives, graffiti
+  supplement; ships offline baseline, auto-refreshes after 7 days
+- Ranked autocomplete (prefix → word-prefix → substring → fuzzy)
+- FastAPI backend: search, listings proxy with discount-vs-reference,
+  price history, watchlists (+ CSV export), alerts + event log, deal finder,
+  Steam inventory valuation, portfolio P&L, settings, item-DB refresh
+- Background worker: interval price tracking, once-per-listing alerts,
+  below-reference deal scanning, Discord webhook notifications
+- WebSocket live events (alerts / deals / snapshots)
+- React web UI: dark terminal-inspired design system (light mode included),
+  keyboard-first search, TradingView price charts, skeleton loading states,
+  responsive to 375 px
+- typer CLI: `serve`, `search`, `price`, `refresh-db`, `key`, `status`
+- API key storage in the OS keychain (validated before storing)
+- SQLite persistence for all state (WAL, app-data directory)
+- 80+ tests (~84 % coverage), ruff lint, GitHub Actions CI, Docker +
+  docker-compose, Makefile, pre-commit hooks
+
+### Changed
+- Prices handled as integer cents internally, rendered as USD in the UI
+- The original prototype moved to `legacy/` for reference
+
+### Removed
+- tkinter/ttkbootstrap GUI (replaced by the web UI)
+- Plaintext `csfloat_config.json` API key storage
+- Scattered JSON/CSV state files (replaced by SQLite)

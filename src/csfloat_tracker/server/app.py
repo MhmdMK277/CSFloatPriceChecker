@@ -27,12 +27,15 @@ logger = logging.getLogger(__name__)
 
 
 def _frontend_dist() -> Path | None:
+    import os
+
     candidates = [
+        Path(os.environ["CSFLOAT_TRACKER_STATIC"]) if os.environ.get("CSFLOAT_TRACKER_STATIC") else None,
         Path(__file__).resolve().parent.parent / "static",  # packaged wheel
         Path(__file__).resolve().parents[3] / "frontend" / "dist",  # repo checkout
     ]
     for c in candidates:
-        if (c / "index.html").exists():
+        if c and (c / "index.html").exists():
             return c
     return None
 
