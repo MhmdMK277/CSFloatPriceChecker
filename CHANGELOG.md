@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.1.0 — 2026-07-17
+
+### Added
+- **Downloadable desktop app** — single-file executables built with
+  PyInstaller (`CSFloatTracker-Windows.exe`, `-Linux`, `-macOS`).
+  Double-click → server starts → browser opens. Windows build is windowed
+  with a system-tray icon (Open / Quit); launching a second instance just
+  opens the browser. Logs rotate in the app-data `logs/` directory.
+- `csfloat_tracker.desktop` launcher, `csfloat-tracker.spec`,
+  `scripts/build_desktop.py` (frontend build + icon/version-info generation
+  + SHA256), `make desktop`, and a `[desktop]` extras group
+- Release workflow: tag `v*` → three-platform build → GitHub Release with
+  binaries and `SHA256SUMS.txt`
+- Bundle-aware path resolution (PyInstaller `sys._MEIPASS`) for the item
+  catalog, graffiti supplement and frontend static files
+
 ## 1.0.0 — 2026-07-16
 
 Complete renovation of the original CLI/tkinter prototype into a self-hosted

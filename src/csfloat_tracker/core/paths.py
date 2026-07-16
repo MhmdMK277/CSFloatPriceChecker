@@ -14,6 +14,15 @@ from pathlib import Path
 APP_NAME = "csfloat-tracker"
 
 
+def bundle_dir() -> Path | None:
+    """Extraction dir of a PyInstaller bundle (sys._MEIPASS), else None."""
+    if getattr(sys, "frozen", False):
+        meipass = getattr(sys, "_MEIPASS", None)
+        if meipass:
+            return Path(meipass)
+    return None
+
+
 def data_dir() -> Path:
     override = os.environ.get("CSFLOAT_TRACKER_DATA")
     if override:
@@ -37,7 +46,10 @@ def itemdb_path() -> Path:
 
 
 def bundled_itemdb_path() -> Path:
-    """The baseline item database shipped with the package/repo."""
+    """The baseline item database shipped with the bundle/package/repo."""
+    frozen = bundle_dir()
+    if frozen and (frozen / "data" / "cs2_items.json").exists():
+        return frozen / "data" / "cs2_items.json"
     packaged = Path(__file__).resolve().parent.parent / "data" / "cs2_items.json"
     if packaged.exists():
         return packaged

@@ -6,7 +6,7 @@ ifeq ($(OS),Windows_NT)
 PY := .venv/Scripts/python.exe
 endif
 
-.PHONY: help setup dev serve test lint fmt build itemdb docker clean
+.PHONY: help setup dev serve test lint fmt build desktop itemdb docker clean
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-12s %s\n", $$1, $$2}'
@@ -36,6 +36,9 @@ fmt: ## Auto-fix lint issues
 build: ## Build the frontend and the Python wheel
 	cd frontend && npm run build
 	uv build
+
+desktop: ## Build the standalone desktop executable (requires .[desktop] extras)
+	$(PY) scripts/build_desktop.py
 
 itemdb: ## Regenerate data/cs2_items.json from the live CSFloat schema
 	$(PY) scripts/generate_itemdb.py

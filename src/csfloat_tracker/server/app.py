@@ -29,8 +29,12 @@ logger = logging.getLogger(__name__)
 def _frontend_dist() -> Path | None:
     import os
 
+    from ..core.paths import bundle_dir
+
+    frozen = bundle_dir()
     candidates = [
         Path(os.environ["CSFLOAT_TRACKER_STATIC"]) if os.environ.get("CSFLOAT_TRACKER_STATIC") else None,
+        (frozen / "static") if frozen else None,  # PyInstaller bundle
         Path(__file__).resolve().parent.parent / "static",  # packaged wheel
         Path(__file__).resolve().parents[3] / "frontend" / "dist",  # repo checkout
     ]

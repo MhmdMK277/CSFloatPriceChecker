@@ -303,12 +303,16 @@ def load_graffiti_supplement() -> list[BaseItem]:
     import json
     from pathlib import Path
 
+    from .paths import bundle_dir
+
+    frozen = bundle_dir()
     candidates = [
+        (frozen / "data" / "graffiti.json") if frozen else None,
         Path(__file__).resolve().parent.parent / "data" / "graffiti.json",
         Path(__file__).resolve().parents[3] / "data" / "graffiti.json",
     ]
     for path in candidates:
-        if path.exists():
+        if path and path.exists():
             with open(path, encoding="utf-8") as fh:
                 names = json.load(fh)
             return [BaseItem(base_name=n, item_type="graffiti") for n in names]

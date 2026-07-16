@@ -41,6 +41,17 @@ and value your whole Steam inventory — from a fast web UI or your terminal.
 
 ## Quick start
 
+### Download (easiest)
+
+Grab the latest `CSFloatTracker-Windows.exe` from [Releases](../../releases),
+double-click it, and your browser opens automatically. No Python, no Node, no
+terminal — just paste your CSFloat API key in Settings and go. A tray icon
+(amber trend-line) holds the *Open* and *Quit* actions; your data lives in
+`%APPDATA%\csfloat-tracker` between runs.
+
+Linux and macOS builds are also available on the Releases page (console
+binaries — `Ctrl+C` to quit).
+
 ### Docker (one command)
 
 ```bash
