@@ -72,11 +72,28 @@ jobs:
           cat *.sha256 > SHA256SUMS.txt
           ls -la
 
-      - uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            artifacts/CSFloatTracker-Windows.exe
-            artifacts/CSFloatTracker-Linux
-            artifacts/CSFloatTracker-macOS
-            artifacts/SHA256SUMS.txt
-          generate_release_notes: true
+      # gh is preinstalled on runners; auto-generated notes are avoided on
+      # purpose — they diff against the previous tag across force-rewritten
+      # history, which GitHub's API errored on.
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          cat > notes.md <<EOF
+          **CSFloat Tracker $TAG** — downloadable desktop app.
+
+          Grab the build for your platform, run it, and your browser opens
+          to the app. Windows is windowed with a tray icon; Linux/macOS are
+          console binaries (Ctrl+C to quit). Verify downloads against
+          \`SHA256SUMS.txt\`. Full details in
+          [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md).
+          EOF
+          gh release create "$TAG" \
+            artifacts/CSFloatTracker-Windows.exe \
+            artifacts/CSFloatTracker-Linux \
+            artifacts/CSFloatTracker-macOS \
+            artifacts/SHA256SUMS.txt \
+            --repo "${{ github.repository }}" \
+            --title "CSFloat Tracker $TAG" \
+            --notes-file notes.md
