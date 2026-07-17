@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "csfloat-tracker"
-version = "1.1.0"
+version = "1.2.0"
 description = "Self-hosted CS2 market intelligence for CSFloat: search, price tracking, watchlists, alerts, deal finder, and inventory pricing."
 readme = "README.md"
 license = { text = "MIT" }

@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.2.0 — 2026-07-17
 
 ### Added
 - **Inventory Manual Load** (SkinSearch-style): open your own inventory JSON
