@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, ApiError } from "../api";
 import { SkeletonRows } from "../components/Skeleton";
+import { MarketTag } from "../components/MarketTag";
 import { Pagination, Th, usePagination, useSortable } from "../components/tableUtils";
 import { useToasts } from "../components/Toasts";
 import { floatShort, timeAgo, usd } from "../format";
@@ -144,8 +145,12 @@ export function DealsPage() {
               <tr>
                 <Th sort={sort} field="ts">Found</Th>
                 <Th sort={sort} field="market_hash_name">Item</Th>
-                <Th sort={sort} field="price_cents" right>Price</Th>
-                <th className="right">Reference</th>
+                <Th sort={sort} field="price_cents" right>
+                  Price · <MarketTag market="csfloat" small />
+                </Th>
+                <th className="right">
+                  Reference · <MarketTag market="csfloat" small />
+                </th>
                 <Th sort={sort} field="discount_pct" right>Discount</Th>
                 <th className="right">Float</th>
                 <th aria-label="link" />

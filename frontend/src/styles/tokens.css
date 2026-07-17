@@ -26,6 +26,12 @@
   --color-danger: oklch(62% 0.19 25);
   --color-scrim: oklch(10% 0.012 250 / 0.7);
 
+  /* marketplace source colors (price provenance tags) */
+  --market-csfloat: oklch(70% 0.14 250);
+  --market-skinport: oklch(75% 0.12 180);
+  --market-steam: oklch(65% 0.05 250);
+  --market-other: oklch(62% 0.02 250);
+
   /* rarity swatches (CS2 canonical hues, tuned for dark paper) */
   --rarity-1: oklch(72% 0.02 250);
   --rarity-2: oklch(70% 0.09 250);
@@ -74,6 +80,10 @@
 }
 
 :root[data-theme="light"] {
+  --market-csfloat: oklch(50% 0.16 250);
+  --market-skinport: oklch(52% 0.13 180);
+  --market-steam: oklch(45% 0.05 250);
+  --market-other: oklch(48% 0.02 250);
   --color-paper: oklch(97% 0.006 250);
   --color-paper-2: oklch(94.5% 0.008 250);
   --color-paper-3: oklch(91.5% 0.01 250);

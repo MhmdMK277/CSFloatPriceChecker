@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.4.1 — 2026-07-18
+
+### Fixed
+- **Inventory can no longer disappear when navigating between pages.** The
+  page state (loaded valuation, pasted JSON, SteamID input, history) now
+  lives in an in-memory cache that survives route changes unconditionally —
+  returning to Inventory renders instantly from memory, with the SQLite
+  snapshot only needed across app restarts. Previously the page was rebuilt
+  from a backend round-trip on every visit, so any hiccup in that chain
+  produced a blank page.
+- **Every price is labeled with its marketplace.** A colored source tag
+  (● CSFloat blue, ● Skinport teal, ● Steam grey) now sits next to prices on
+  the item page buy/sell comparison, live listings, deals, inventory,
+  watchlists — no more guessing which number came from where.
+
 ## 1.4.0 — 2026-07-18
 
 ### Fixed

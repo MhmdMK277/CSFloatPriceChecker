@@ -6,6 +6,7 @@ import { api, ApiError } from "../api";
 import { Delta } from "../components/Delta";
 import { SearchBox } from "../components/SearchBox";
 import { SkeletonRows } from "../components/Skeleton";
+import { MarketTag } from "../components/MarketTag";
 import { Th, useSortable } from "../components/tableUtils";
 import { useToasts } from "../components/Toasts";
 import { timeAgo, usd } from "../format";
@@ -182,7 +183,9 @@ export function WatchlistsPage() {
                     <thead>
                       <tr>
                         <Th sort={sort} field="market_hash_name">Item</Th>
-                        <Th sort={sort} field="last_price_cents" right>Lowest price</Th>
+                        <Th sort={sort} field="last_price_cents" right>
+                          Lowest · <MarketTag market="csfloat" small />
+                        </Th>
                         <Th sort={sort} field="change_cents" right>Change</Th>
                         <th className="right">Checked</th>
                         <th aria-label="actions" />

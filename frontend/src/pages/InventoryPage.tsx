@@ -9,12 +9,33 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, ApiError } from "../api";
 import { SkeletonRows, SkeletonTiles } from "../components/Skeleton";
+import { MarketTag } from "../components/MarketTag";
 import { Pagination, Th, usePagination, useSortable } from "../components/tableUtils";
 import { useToasts } from "../components/Toasts";
 import { timeAgo, usd } from "../format";
 import type { InventoryHistoryEntry, InventoryResponse, InventoryRow } from "../types";
 
 const STEAM_ID_LS_KEY = "csfloat_steam_id";
+
+/** In-memory page state that survives route changes.
+ *
+ * React Router unmounts the page on navigation; rebuilding purely from the
+ * backend makes "come back to a blank page" possible whenever that round
+ * trip hiccups. This cache guarantees the loaded inventory reappears
+ * instantly and unconditionally within the app session — the backend
+ * snapshot only needs to cover restarts. */
+interface InventoryPageCache {
+  input: string;
+  steamId: string | null;
+  manualOpen: boolean;
+  tradablePaste: string;
+  protectedPaste: string;
+  result: InventoryResponse | null;
+  resultTs: string | null;
+  history: InventoryHistoryEntry[];
+}
+
+let pageCache: InventoryPageCache | null = null;
 
 const TRADE_PROTECTED_INFO =
   "Since Steam's April 2024 update, items received in a trade are trade-protected " +
@@ -103,22 +124,43 @@ function PasteBox({
 
 export function InventoryPage() {
   const { push } = useToasts();
-  const [input, setInput] = useState(() => localStorage.getItem(STEAM_ID_LS_KEY) ?? "");
+  const [input, setInput] = useState(
+    () => pageCache?.input ?? localStorage.getItem(STEAM_ID_LS_KEY) ?? "",
+  );
   const [steamId, setSteamId] = useState<string | null>(
-    () => localStorage.getItem(STEAM_ID_LS_KEY),
+    () => pageCache?.steamId ?? localStorage.getItem(STEAM_ID_LS_KEY),
   );
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [manualOpen, setManualOpen] = useState(false);
-  const [tradablePaste, setTradablePaste] = useState("");
-  const [protectedPaste, setProtectedPaste] = useState("");
-  const [result, setResult] = useState<InventoryResponse | null>(null);
-  const [resultTs, setResultTs] = useState<string | null>(null); // null = fresh load
-  const [history, setHistory] = useState<InventoryHistoryEntry[]>([]);
+  const [manualOpen, setManualOpen] = useState(() => pageCache?.manualOpen ?? false);
+  const [tradablePaste, setTradablePaste] = useState(() => pageCache?.tradablePaste ?? "");
+  const [protectedPaste, setProtectedPaste] = useState(() => pageCache?.protectedPaste ?? "");
+  const [result, setResult] = useState<InventoryResponse | null>(() => pageCache?.result ?? null);
+  const [resultTs, setResultTs] = useState<string | null>(() => pageCache?.resultTs ?? null);
+  const [history, setHistory] = useState<InventoryHistoryEntry[]>(() => pageCache?.history ?? []);
   const [loading, setLoading] = useState(false);
-  const [restoring, setRestoring] = useState(true);
+  // The in-memory cache renders instantly; only a truly cold visit shows the
+  // restoring state while we ask the backend for the last snapshot.
+  const [restoring, setRestoring] = useState(pageCache === null);
 
-  // Restore the last session: remembered id, preferred method, latest snapshot.
+  // Keep the cache current — runs after every render, plain assignment.
   useEffect(() => {
+    pageCache = {
+      input, steamId, manualOpen, tradablePaste, protectedPaste,
+      result, resultTs, history,
+    };
+  });
+
+  // Cold start (no in-memory state): restore the last session from the
+  // backend — remembered id, preferred method, latest snapshot.
+  useEffect(() => {
+    if (pageCache?.result) {
+      // Warm revisit: state already on screen; just refresh history quietly.
+      api
+        .inventoryHistory()
+        .then((h) => setHistory(h.snapshots))
+        .catch((err) => console.error("inventoryHistory failed:", err));
+      return;
+    }
     api
       .inventorySession()
       .then((session) => {
@@ -139,6 +181,7 @@ export function InventoryPage() {
       .inventoryHistory()
       .then((h) => setHistory(h.snapshots))
       .catch((err) => console.error("inventoryHistory failed:", err));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /** Best-effort SteamID from the raw input, so manual loads persist even
@@ -426,7 +469,9 @@ export function InventoryPage() {
                 <tr>
                   <Th sort={itemSort} field="market_hash_name">Item</Th>
                   <Th sort={itemSort} field="quantity" right>Qty</Th>
-                  <Th sort={itemSort} field="reference_price_cents" right>Each</Th>
+                  <Th sort={itemSort} field="reference_price_cents" right>
+                    Each · <MarketTag market="csfloat" small />
+                  </Th>
                   <Th sort={itemSort} field="line_value_cents" right>Line total</Th>
                 </tr>
               </thead>

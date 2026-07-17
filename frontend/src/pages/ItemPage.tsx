@@ -5,6 +5,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { api, ApiError } from "../api";
 import { DiscountBadge } from "../components/Delta";
 import { ListingsTable } from "../components/ListingsTable";
+import { MarketTag } from "../components/MarketTag";
 import { PriceChart } from "../components/PriceChart";
 import { SkeletonRows, SkeletonTiles } from "../components/Skeleton";
 import { useToasts } from "../components/Toasts";
@@ -155,7 +156,7 @@ export function ItemPage() {
       ) : (
         <div className="tiles">
           <div className="tile">
-            <div className="label">Reference price</div>
+            <div className="label">Reference price · <MarketTag market="csfloat" small /></div>
             <div className="value">{usd(variant?.reference_price_cents)}</div>
           </div>
           <div className="tile">
@@ -213,16 +214,19 @@ export function ItemPage() {
                 Buy — lowest known price
               </span>
               <div className="row spread" style={{ gap: 16 }}>
-                <span>CSFloat <span className="xsmall muted">(reference)</span></span>
+                <span className="row" style={{ gap: 6 }}>
+                  <MarketTag market="csfloat" />
+                  <span className="xsmall muted">reference</span>
+                </span>
                 <span className="num" style={{ fontWeight: 600 }}>
                   {usd(compare.buy.csfloat_reference_cents)}
                 </span>
               </div>
               <div className="row spread" style={{ gap: 16 }}>
-                <span>
-                  Skinport{" "}
+                <span className="row" style={{ gap: 6 }}>
+                  <MarketTag market="skinport" />
                   {compare.buy.skinport_quantity !== null && (
-                    <span className="xsmall muted">({compare.buy.skinport_quantity} listed)</span>
+                    <span className="xsmall muted">{compare.buy.skinport_quantity} listed</span>
                   )}
                 </span>
                 <span className="num" style={{ fontWeight: 600 }}>
@@ -249,7 +253,7 @@ export function ItemPage() {
                   {compare.sell.map((row, i) => (
                     <tr key={row.key} title={row.note}>
                       <td style={{ fontWeight: i === 0 ? 600 : 400 }}>
-                        {row.name}
+                        <MarketTag market={row.key} />
                         {row.live_prices && <span className="badge accent" style={{ marginLeft: 6 }}>live</span>}
                       </td>
                       <td className="right num">{row.seller_fee_pct}%</td>

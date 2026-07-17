@@ -679,6 +679,24 @@ th.right {
   color: var(--color-neutral);
 }
 
+.market-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-data);
+  font-size: var(--text-xs);
+  color: var(--color-neutral);
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.market-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+}
+
 .rarity-dot {
   display: inline-block;
   width: 8px;

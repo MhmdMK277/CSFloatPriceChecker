@@ -3,6 +3,7 @@
 import { floatShort, timeAgo, usd } from "../format";
 import type { Listing } from "../types";
 import { DiscountBadge } from "./Delta";
+import { MarketTag } from "./MarketTag";
 
 export function ListingsTable({
   listings,
@@ -18,7 +19,9 @@ export function ListingsTable({
         <thead>
           <tr>
             {showItemColumn && <th>Item</th>}
-            <th className="right">Price</th>
+            <th className="right">
+              Price · <MarketTag market="csfloat" small />
+            </th>
             <th className="right">Float</th>
             <th>Details</th>
             <th>Seller</th>
