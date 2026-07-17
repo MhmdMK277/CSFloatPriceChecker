@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.4.2 - 2026-07-18
+
+### Changed
+- Removed every em/en dash from the codebase, UI, and docs (plain hyphens
+  throughout; empty table cells now show "-")
+- README rebuilt to top-OSS-repo standards: centered hero with badges,
+  screenshot up front, table of contents, three-option quick start,
+  collapsible FAQ
+
+### Added
+- SECURITY.md: download verification, SmartScreen guidance, data-privacy
+  statement, vulnerability reporting
+- SmartScreen notice at the top of every GitHub Release body
+- SIGNPATH_APPLICATION.md: pre-filled 2-minute walkthrough for the free
+  SignPath Foundation code-signing application; issue #40 expanded with
+  the full plan plus the Azure Artifact Signing fallback
+
 ## 1.4.1 - 2026-07-18
 
 ### Fixed

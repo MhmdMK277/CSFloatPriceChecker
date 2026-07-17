@@ -81,12 +81,21 @@ jobs:
         run: |
           TAG="${{ github.ref_name }}"
           cat > notes.md <<EOF
+          **First launch on Windows:** SmartScreen will show "Windows protected
+          your PC" because the app isn't code-signed yet. Click "More info"
+          then "Run anyway." This is normal for unsigned open-source software.
+          You can verify your download with the SHA256 checksums below. Code
+          signing is in progress (see
+          [#40](https://github.com/${{ github.repository }}/issues/40)).
+
+          ---
+
           **CSFloat Tracker $TAG** - downloadable desktop app.
 
           Grab the build for your platform, run it, and your browser opens
           to the app. Windows is windowed with a tray icon; Linux/macOS are
           console binaries (Ctrl+C to quit). Verify downloads against
-          \`SHA256SUMS.txt\`. Full details in
+          \`SHA256SUMS.txt\`. Full changelog:
           [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md).
           EOF
           gh release create "$TAG" \
