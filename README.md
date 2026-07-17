@@ -27,10 +27,13 @@ you**, around the clock:
   daily intervals; your own local database builds charts of lowest/average
   price and listing volume. Your inventory's total value is snapshotted on
   every load, so you can see "up $31 since last week" at a glance.
-- **The fee math is done for you.** Every item page shows what you'd
-  actually pocket selling at CSFloat (2%), Buff163 (2.5%), DMarket (~5%),
-  Skinport (12%) or the Steam Market (15%, and the money never leaves
-  Steam). No more selling on the wrong platform.
+- **Cross-market prices, not just one site's.** Skinport's live feed is
+  built in (no key needed) — every item page shows the lowest CSFloat and
+  Skinport buy prices side by side, plus what you'd actually pocket selling
+  on CSFloat (2%), Buff163 (2.5%), DMarket (~5%), SkinBaron (5%), Skinport
+  (tiered 6–12%) or the Steam Market (15%, and the money never leaves
+  Steam). The deal finder cross-checks every hit against Skinport too, so
+  a "CSFloat deal" that's cheaper elsewhere gets called out.
 - **Inventory valuation that actually works.** Steam has rate-limited
   inventory fetches into the ground since April 2024. The Manual Load flow
   (SkinSearch-style) sidesteps it: open two links in your own browser, paste,
@@ -56,6 +59,16 @@ your data lives in `%APPDATA%\csfloat-tracker` between runs.
 
 Linux and macOS builds are also on the Releases page (console binaries —
 `Ctrl+C` to quit).
+
+### Windows SmartScreen notice
+
+The app isn't code-signed yet, so Windows may show a "Windows protected your
+PC" warning on first launch. Click **More info** then **Run anyway** — this
+happens once.
+
+You can verify your download against the SHA256 checksums published with
+each release. We've applied for free open-source code signing through
+SignPath Foundation to eliminate this warning in a future release.
 
 **First run:** search and inventory valuation work immediately, no key
 needed. For live listings, tracking, alerts and the deal finder, grab a free

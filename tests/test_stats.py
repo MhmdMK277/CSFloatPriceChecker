@@ -124,8 +124,22 @@ def test_marketplace_sale_breakdown():
     assert rows["csfloat"]["net_cents"] == 9800
     assert rows["steam"]["net_cents"] == 8500
     assert rows["buff163"]["fee_cents"] == 250
-    # Sorted table covers every market and nets never exceed gross
+    # Sorted best-net-first, and nets never exceed gross
+    ordered = sale_breakdown(10000)
+    assert ordered[0]["key"] == "csfloat"
     assert all(r["net_cents"] <= 10000 for r in rows.values())
+
+
+def test_skinport_tiered_fees():
+    from csfloat_tracker.core.markets import fee_pct_for, sale_breakdown
+
+    assert fee_pct_for("skinport", 2000) == 12.0   # $20
+    assert fee_pct_for("skinport", 5000) == 9.0    # $50
+    assert fee_pct_for("skinport", 50000) == 6.0   # $500
+    # $100 exactly crosses into the 6% tier
+    assert fee_pct_for("skinport", 10000) == 6.0
+    rows = {r["key"]: r for r in sale_breakdown(2000)}
+    assert rows["skinport"]["net_cents"] == 2000 - 240
 
 
 def test_portfolio_summary():

@@ -100,6 +100,13 @@ CREATE TABLE IF NOT EXISTS deals (
 );
 CREATE INDEX IF NOT EXISTS idx_deals_ts ON deals(ts);
 
+CREATE TABLE IF NOT EXISTS skinport_prices (
+  market_hash_name TEXT PRIMARY KEY,
+  min_price_cents INTEGER NOT NULL,
+  quantity INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS inventory_snapshots (
   id INTEGER PRIMARY KEY,
   steam_id TEXT NOT NULL,
@@ -431,6 +438,34 @@ class Storage:
             (keep,),
         )
         await self.db.commit()
+
+    # ------------------------------------------------------------------
+    # Skinport price cache
+    # ------------------------------------------------------------------
+
+    async def replace_skinport_prices(self, rows: list[dict[str, Any]]) -> None:
+        """Bulk-replace the Skinport price cache with a fresh feed."""
+        await self.db.execute("DELETE FROM skinport_prices")
+        await self.db.executemany(
+            "INSERT OR REPLACE INTO skinport_prices"
+            "(market_hash_name,min_price_cents,quantity,updated_at) VALUES(?,?,?,?)",
+            [
+                (r["market_hash_name"], r["min_price_cents"], r["quantity"], r["updated_at"])
+                for r in rows
+            ],
+        )
+        await self.db.commit()
+
+    async def get_skinport_price(self, market_hash_name: str) -> dict[str, Any] | None:
+        return await self._fetchone(
+            "SELECT * FROM skinport_prices WHERE market_hash_name=?", (market_hash_name,)
+        )
+
+    async def skinport_status(self) -> dict[str, Any]:
+        row = await self._fetchone(
+            "SELECT COUNT(*) AS items, MAX(updated_at) AS updated_at FROM skinport_prices"
+        )
+        return row or {"items": 0, "updated_at": None}
 
     # ------------------------------------------------------------------
     # Inventory snapshots

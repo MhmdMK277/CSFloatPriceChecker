@@ -307,6 +307,51 @@ async def test_inventory_session_empty(api):
     assert r.json()["snapshots"] == []
 
 
+async def test_markets_compare(api, ctx):
+    await ctx.storage.replace_skinport_prices([
+        {"market_hash_name": "AK-47 | Redline (Field-Tested)",
+         "min_price_cents": 3120, "quantity": 41, "updated_at": "2026-07-18T00:00:00+00:00"},
+    ])
+    r = await api.get("/api/markets/compare", params={"name": "AK-47 | Redline (Field-Tested)"})
+    body = r.json()
+    assert body["buy"]["csfloat_reference_cents"] == 2894
+    assert body["buy"]["skinport_min_cents"] == 3120
+    sell = {m["key"]: m for m in body["sell"]}
+    assert sell["csfloat"]["net_cents"] == 2894 - round(2894 * 0.02)
+    assert sell["skinport"]["seller_fee_pct"] == 12.0  # $28.94 -> under-$30 tier
+
+    # Unknown item, no skinport row: fees-only response, no crash
+    r = await api.get("/api/markets/compare", params={"name": "Nope"})
+    assert r.json()["sell"] == []
+
+
+async def test_manual_load_uses_remembered_steam_id(api, ctx):
+    """A paste without a steam_id still lands in the remembered history."""
+    sid = "76561198349712477"
+    await ctx.storage.set_setting("last_steam_id", sid)
+    r = await api.post("/api/inventory/manual", json={"tradable": _steam_payload("2", ["77"])})
+    assert r.status_code == 200
+    latest = await ctx.storage.get_latest_inventory_snapshot(sid)
+    assert latest is not None
+    assert latest["item_count"] == 1
+
+
+async def test_marketplace_settings(api, monkeypatch):
+    import csfloat_tracker.core.secrets as secrets_mod
+
+    monkeypatch.setattr(secrets_mod, "_keyring", lambda: None)
+    r = await api.get("/api/settings/marketplaces")
+    assert r.json()["cspriceapi_key_set"] is False
+    assert r.json()["skinport"]["items"] == 0
+
+    r = await api.post("/api/settings/marketplaces/cspriceapi", json={"key": "test-key-123"})
+    assert r.status_code == 200
+    r = await api.get("/api/settings/marketplaces")
+    assert r.json()["cspriceapi_key_set"] is True
+    r = await api.delete("/api/settings/marketplaces/cspriceapi")
+    assert r.status_code == 200
+
+
 async def test_markets_fees(api):
     r = await api.get("/api/markets/fees")
     table = r.json()["marketplaces"]

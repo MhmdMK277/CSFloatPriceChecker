@@ -17,6 +17,7 @@ from datetime import UTC, datetime
 import httpx
 
 from ..core.errors import CSFloatError, RateLimitError
+from ..core.skinport import MIN_REFRESH_SECONDS, fetch_skinport_items
 from ..core.stats import deal_reason, discount_pct, summarize_listings
 from .deps import AppContext
 
@@ -32,6 +33,7 @@ class Worker:
         self._stop = asyncio.Event()
         self._last_alert_run = 0.0
         self._last_deal_run = 0.0
+        self._last_skinport_run = 0.0
 
     def stop(self) -> None:
         self._stop.set()
@@ -48,9 +50,13 @@ class Worker:
         logger.info("Background worker stopped")
 
     async def tick(self) -> None:
-        if not self.ctx.client.api_key:
-            return  # nothing useful to do without a key
         now = asyncio.get_event_loop().time()
+        # Skinport needs no key and other features degrade gracefully around it.
+        if self._last_skinport_run == 0.0 or now - self._last_skinport_run >= MIN_REFRESH_SECONDS:
+            self._last_skinport_run = now
+            await self._refresh_skinport()
+        if not self.ctx.client.api_key:
+            return  # everything below talks to CSFloat
         await self._run_due_tracking()
         if now - self._last_alert_run >= ALERT_INTERVAL:
             self._last_alert_run = now
@@ -59,6 +65,20 @@ class Worker:
         if config.get("enabled") and now - self._last_deal_run >= config.get("interval_seconds", 120):
             self._last_deal_run = now
             await self._scan_deals(config)
+
+    # ------------------------------------------------------------------
+    # Skinport price feed
+    # ------------------------------------------------------------------
+
+    async def _refresh_skinport(self) -> None:
+        try:
+            rows = await fetch_skinport_items()
+            if rows:
+                await self.ctx.storage.replace_skinport_prices(rows)
+        except CSFloatError as exc:
+            logger.info("Skinport refresh skipped: %s", exc.message)
+        except Exception:
+            logger.exception("Skinport refresh failed")
 
     # ------------------------------------------------------------------
     # Price tracking
@@ -205,6 +225,16 @@ class Worker:
             if pct < threshold:
                 continue
             reason = deal_reason(listing, self.ctx.itemdb)
+            # Cross-market sanity check: a "deal" that's above Skinport's
+            # everyday price isn't one; genuinely beating both markets is
+            # worth calling out.
+            skinport = await self.ctx.storage.get_skinport_price(listing.market_hash_name)
+            if skinport:
+                if skinport["min_price_cents"] < listing.price_cents:
+                    cross = f"note: cheaper on Skinport at ${skinport['min_price_cents'] / 100:.2f}"
+                else:
+                    cross = "best price across CSFloat + Skinport"
+                reason = f"{reason} · {cross}" if reason else cross
             is_new = await self.ctx.storage.record_deal(
                 listing_id=listing.id,
                 market_hash_name=listing.market_hash_name,

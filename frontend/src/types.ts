@@ -231,8 +231,26 @@ export interface MarketFeeRow {
   seller_fee_pct: number;
   payout: string;
   note: string;
+  live_prices?: boolean;
   fee_cents?: number;
   net_cents?: number;
+}
+
+export interface MarketCompare {
+  market_hash_name: string;
+  buy: {
+    csfloat_reference_cents: number | null;
+    skinport_min_cents: number | null;
+    skinport_quantity: number | null;
+    skinport_updated_at: string | null;
+  };
+  sell: MarketFeeRow[];
+  skinport_feed: { items: number; updated_at: string | null };
+}
+
+export interface MarketplaceSettings {
+  skinport: { items: number; updated_at: string | null };
+  cspriceapi_key_set: boolean;
 }
 
 export interface PortfolioEntry {

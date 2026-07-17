@@ -1,5 +1,34 @@
 # Changelog
 
+## 1.4.0 — 2026-07-18
+
+### Fixed
+- **Stale-instance trap**: launching a newly downloaded build while an older
+  version was still in the system tray silently opened the old app — making
+  new features (like v1.3.0's inventory persistence) look broken. The
+  launcher now detects the version mismatch and shows a warning telling you
+  to quit the old tray instance first.
+- Inventory session restore hardening: a visible "Restoring your last
+  session…" state instead of a blank page, errors logged to the console
+  instead of swallowed, and manual pastes/uploads now persist even when you
+  never clicked Fetch (SteamID derived from the input client-side, with a
+  server-side fallback to the remembered id).
+
+### Added
+- **Skinport integration** (no key needed): the public price feed is cached
+  locally and refreshed in the background. Item pages show a marketplace
+  comparison — lowest CSFloat vs Skinport buy price, and net sell payouts
+  across six marketplaces with Skinport's tiered fees (12%/9%/6%). The deal
+  finder cross-validates every hit ("cheaper on Skinport at $X" / "best
+  price across CSFloat + Skinport").
+- SkinBaron and Buff163 rows in the fee table; optional CSPriceAPI key
+  storage in Settings for future Buff163/SkinBaron/C5Game price data.
+- **Pagination + sortable columns** everywhere: inventory items (no more
+  200-row cap), deals, alert events, portfolio and watchlists get clickable
+  sort headers; big lists page at 25/50/100 rows with the page in the URL.
+- Windows SmartScreen notice in the README; SignPath code-signing tracked
+  upstream.
+
 ## 1.3.0 — 2026-07-17
 
 ### Added

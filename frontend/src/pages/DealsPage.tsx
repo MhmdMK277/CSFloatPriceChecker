@@ -1,8 +1,9 @@
 /** Deal finder (sniper mode): config + rolling feed of below-reference listings. */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, ApiError } from "../api";
 import { SkeletonRows } from "../components/Skeleton";
+import { Pagination, Th, usePagination, useSortable } from "../components/tableUtils";
 import { useToasts } from "../components/Toasts";
 import { floatShort, timeAgo, usd } from "../format";
 import type { Deal, DealConfig } from "../types";
@@ -12,6 +13,13 @@ export function DealsPage() {
   const [config, setConfig] = useState<DealConfig | null>(null);
   const [deals, setDeals] = useState<Deal[] | null>(null);
   const [saving, setSaving] = useState(false);
+  const sort = useSortable<Deal>("ts", "desc");
+  const sortedDeals = useMemo(
+    () => sort.apply(deals ?? []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [deals, sort.field, sort.dir],
+  );
+  const pages = usePagination(sortedDeals, "deals");
 
   const load = useCallback(async () => {
     const [c, d] = await Promise.all([api.dealConfig(), api.deals()]);
@@ -129,21 +137,22 @@ export function DealsPage() {
           Turn scanning on and give it a few minutes — hits also arrive as live toasts.
         </div>
       ) : (
+        <>
         <div className="table-wrap">
           <table className="data">
             <thead>
               <tr>
-                <th>Found</th>
-                <th>Item</th>
-                <th className="right">Price</th>
+                <Th sort={sort} field="ts">Found</Th>
+                <Th sort={sort} field="market_hash_name">Item</Th>
+                <Th sort={sort} field="price_cents" right>Price</Th>
                 <th className="right">Reference</th>
-                <th className="right">Discount</th>
+                <Th sort={sort} field="discount_pct" right>Discount</Th>
                 <th className="right">Float</th>
                 <th aria-label="link" />
               </tr>
             </thead>
             <tbody>
-              {deals.map((deal) => (
+              {pages.rows.map((deal) => (
                 <tr key={deal.id}>
                   <td className="xsmall muted num">{timeAgo(deal.ts)}</td>
                   <td style={{ overflowWrap: "anywhere" }}>
@@ -172,6 +181,8 @@ export function DealsPage() {
             </tbody>
           </table>
         </div>
+        <Pagination state={pages} label="deals" />
+        </>
       )}
     </div>
   );

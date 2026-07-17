@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, ApiError } from "../api";
 import { useToasts } from "../components/Toasts";
 import { intervalLabel, timeAgo } from "../format";
-import type { AppStatus, TrackedItem } from "../types";
+import type { AppStatus, MarketplaceSettings, TrackedItem } from "../types";
 
 export function SettingsPage({ onStatusChange }: { onStatusChange: () => void }) {
   const { push } = useToasts();
@@ -13,16 +13,20 @@ export function SettingsPage({ onStatusChange }: { onStatusChange: () => void })
   const [webhook, setWebhook] = useState("");
   const [tracked, setTracked] = useState<TrackedItem[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
+  const [markets, setMarkets] = useState<MarketplaceSettings | null>(null);
+  const [csPriceKey, setCsPriceKey] = useState("");
 
   const load = useCallback(async () => {
-    const [s, prefs, t] = await Promise.all([
+    const [s, prefs, t, m] = await Promise.all([
       api.status(),
       api.preferences(),
       api.tracked(),
+      api.marketplaceSettings(),
     ]);
     setStatus(s);
     setWebhook((prefs.discord_webhook_url as string) ?? "");
     setTracked(t.tracked);
+    setMarkets(m);
   }, []);
 
   useEffect(() => {
@@ -165,6 +169,75 @@ export function SettingsPage({ onStatusChange }: { onStatusChange: () => void })
           >
             {busy === "db" ? "Refreshing…" : "Refresh item database"}
           </button>
+        </section>
+
+        <section className="panel stack" aria-labelledby="s-markets">
+          <h2 id="s-markets">Marketplace data sources</h2>
+          <div className="row spread">
+            <span>Skinport public feed</span>
+            {markets && markets.skinport.items > 0 ? (
+              <span className="badge up">
+                connected · {markets.skinport.items.toLocaleString()} items ·{" "}
+                {timeAgo(markets.skinport.updated_at)}
+              </span>
+            ) : (
+              <span className="badge">connecting… (no key needed)</span>
+            )}
+          </div>
+          <hr className="rule" />
+          <p className="small muted">
+            <strong>CSPriceAPI key</strong> (optional) — unlocks Buff163 / SkinBaron / C5Game
+            reference prices in a future update. Get one at{" "}
+            <a className="link-accent" href="https://cspriceapi.com" target="_blank" rel="noreferrer">
+              cspriceapi.com
+            </a>
+            . Stored in your OS keychain like the CSFloat key.
+          </p>
+          {markets?.cspriceapi_key_set ? (
+            <div className="row">
+              <span className="badge up">key stored</span>
+              <button
+                className="btn ghost danger sm"
+                onClick={async () => {
+                  await api.deleteCsPriceApiKey();
+                  await load();
+                }}
+              >
+                Remove
+              </button>
+            </div>
+          ) : (
+            <div className="row">
+              <input
+                type="password"
+                placeholder="CSPriceAPI key"
+                value={csPriceKey}
+                onChange={(e) => setCsPriceKey(e.target.value)}
+                style={{ flex: 1 }}
+                autoComplete="off"
+              />
+              <button
+                className="btn"
+                disabled={csPriceKey.trim().length < 8}
+                onClick={async () => {
+                  try {
+                    await api.setCsPriceApiKey(csPriceKey.trim());
+                    setCsPriceKey("");
+                    await load();
+                    push({ kind: "info", title: "Marketplaces", body: "CSPriceAPI key stored." });
+                  } catch (err) {
+                    push({
+                      kind: "error",
+                      title: "Marketplaces",
+                      body: err instanceof ApiError ? err.message : "Could not store the key.",
+                    });
+                  }
+                }}
+              >
+                Save
+              </button>
+            </div>
+          )}
         </section>
 
         <section className="panel stack" aria-labelledby="s-notif">

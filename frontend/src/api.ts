@@ -12,7 +12,9 @@ import type {
   InventorySession,
   ItemVariant,
   ListingsResponse,
+  MarketCompare,
   MarketFeeRow,
+  MarketplaceSettings,
   PortfolioResponse,
   SteamFetchResponse,
   TrackedItem,
@@ -142,6 +144,15 @@ export const api = {
     ),
   marketFees: (priceCents?: number | null) =>
     request<{ marketplaces: MarketFeeRow[] }>(`/api/markets/fees${qs({ price_cents: priceCents })}`),
+  marketsCompare: (name: string) => request<MarketCompare>(`/api/markets/compare${qs({ name })}`),
+  marketplaceSettings: () => request<MarketplaceSettings>("/api/settings/marketplaces"),
+  setCsPriceApiKey: (key: string) =>
+    request<{ ok: boolean; stored_in: string }>("/api/settings/marketplaces/cspriceapi", {
+      method: "POST",
+      body: JSON.stringify({ key }),
+    }),
+  deleteCsPriceApiKey: () =>
+    request("/api/settings/marketplaces/cspriceapi", { method: "DELETE" }),
 
   portfolio: () => request<PortfolioResponse>("/api/portfolio"),
   addPortfolio: (entry: {

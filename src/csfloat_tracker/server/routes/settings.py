@@ -73,3 +73,31 @@ async def set_preferences(body: PreferencesBody, ctx: AppContext = Depends(get_c
 async def refresh_itemdb(ctx: AppContext = Depends(get_ctx)):
     """Force a fresh pull of the CSFloat schema."""
     return await ctx.itemdb.refresh(ctx.client)
+
+
+CSPRICEAPI_ACCOUNT = "cspriceapi-key"
+
+
+class MarketKeyBody(BaseModel):
+    key: str = Field(..., min_length=8, max_length=200)
+
+
+@router.get("/settings/marketplaces")
+async def marketplace_status(ctx: AppContext = Depends(get_ctx)):
+    """Connection state of optional marketplace data sources."""
+    return {
+        "skinport": await ctx.storage.skinport_status(),  # no key needed
+        "cspriceapi_key_set": bool(secrets.get_secret(CSPRICEAPI_ACCOUNT)),
+    }
+
+
+@router.post("/settings/marketplaces/cspriceapi")
+async def set_cspriceapi_key(body: MarketKeyBody):
+    backend = secrets.set_secret(CSPRICEAPI_ACCOUNT, body.key.strip())
+    return {"ok": True, "stored_in": backend}
+
+
+@router.delete("/settings/marketplaces/cspriceapi")
+async def delete_cspriceapi_key():
+    secrets.delete_secret(CSPRICEAPI_ACCOUNT)
+    return {"ok": True}

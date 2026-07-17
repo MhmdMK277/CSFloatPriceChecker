@@ -40,11 +40,11 @@ def _fallback_path():
     return data_dir() / FALLBACK_FILE
 
 
-def get_api_key() -> str | None:
+def get_secret(account: str) -> str | None:
     kr = _keyring()
     if kr:
         try:
-            key = kr.get_password(SERVICE, ACCOUNT)
+            key = kr.get_password(SERVICE, account)
             if key:
                 return key
         except Exception as exc:
@@ -53,37 +53,70 @@ def get_api_key() -> str | None:
     if path.exists():
         try:
             with open(path, encoding="utf-8") as fh:
-                return json.load(fh).get(ACCOUNT)
+                return json.load(fh).get(account)
         except (ValueError, OSError) as exc:
             logger.warning("Secret file read failed: %s", exc)
     return None
 
 
-def set_api_key(key: str) -> str:
-    """Store the key; returns the backend used ('keychain' or 'file')."""
+def set_secret(account: str, value: str) -> str:
+    """Store a named secret; returns the backend used ('keychain' or 'file')."""
     kr = _keyring()
     if kr:
         try:
-            kr.set_password(SERVICE, ACCOUNT, key)
-            # Remove any stale fallback copy so there is a single source of truth.
-            _fallback_path().unlink(missing_ok=True)
+            kr.set_password(SERVICE, account, value)
+            _remove_from_fallback(account)
             return "keychain"
         except Exception as exc:
             logger.warning("Keyring write failed, using file fallback: %s", exc)
     path = _fallback_path()
+    data: dict = {}
+    if path.exists():
+        with contextlib.suppress(ValueError, OSError):
+            data = json.loads(path.read_text(encoding="utf-8"))
+    data[account] = value
     with open(path, "w", encoding="utf-8") as fh:
-        json.dump({ACCOUNT: key}, fh)
+        json.dump(data, fh)
     if os.name == "posix":
         path.chmod(stat.S_IRUSR | stat.S_IWUSR)
     return "file"
 
 
-def delete_api_key() -> None:
+def delete_secret(account: str) -> None:
     kr = _keyring()
     if kr:
         with contextlib.suppress(Exception):
-            kr.delete_password(SERVICE, ACCOUNT)
-    _fallback_path().unlink(missing_ok=True)
+            kr.delete_password(SERVICE, account)
+    _remove_from_fallback(account)
+
+
+def _remove_from_fallback(account: str) -> None:
+    path = _fallback_path()
+    if not path.exists():
+        return
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        data.pop(account, None)
+        if data:
+            path.write_text(json.dumps(data), encoding="utf-8")
+        else:
+            path.unlink()
+    except (ValueError, OSError) as exc:
+        logger.warning("Secret file update failed: %s", exc)
+
+
+# CSFloat API key — the original, most-used secret keeps its short helpers.
+
+def get_api_key() -> str | None:
+    return get_secret(ACCOUNT)
+
+
+def set_api_key(key: str) -> str:
+    return set_secret(ACCOUNT, key)
+
+
+def delete_api_key() -> None:
+    delete_secret(ACCOUNT)
 
 
 def storage_backend() -> str:

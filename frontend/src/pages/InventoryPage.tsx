@@ -9,9 +9,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, ApiError } from "../api";
 import { SkeletonRows, SkeletonTiles } from "../components/Skeleton";
+import { Pagination, Th, usePagination, useSortable } from "../components/tableUtils";
 import { useToasts } from "../components/Toasts";
 import { timeAgo, usd } from "../format";
-import type { InventoryHistoryEntry, InventoryResponse } from "../types";
+import type { InventoryHistoryEntry, InventoryResponse, InventoryRow } from "../types";
 
 const STEAM_ID_LS_KEY = "csfloat_steam_id";
 
@@ -114,6 +115,7 @@ export function InventoryPage() {
   const [resultTs, setResultTs] = useState<string | null>(null); // null = fresh load
   const [history, setHistory] = useState<InventoryHistoryEntry[]>([]);
   const [loading, setLoading] = useState(false);
+  const [restoring, setRestoring] = useState(true);
 
   // Restore the last session: remembered id, preferred method, latest snapshot.
   useEffect(() => {
@@ -131,12 +133,22 @@ export function InventoryPage() {
           setResultTs(session.latest.ts);
         }
       })
-      .catch(() => {});
+      .catch((err) => console.error("inventorySession failed:", err))
+      .finally(() => setRestoring(false));
     api
       .inventoryHistory()
       .then((h) => setHistory(h.snapshots))
-      .catch(() => {});
+      .catch((err) => console.error("inventoryHistory failed:", err));
   }, []);
+
+  /** Best-effort SteamID from the raw input, so manual loads persist even
+   * when the user never clicked Fetch this session. */
+  const clientSteamId = (): string | null => {
+    const trimmed = input.trim().replace(/\/+$/, "");
+    if (/^\d{17}$/.test(trimmed)) return trimmed;
+    const m = trimmed.match(/steamcommunity\.com\/profiles\/(\d{17})/);
+    return m ? m[1] : null;
+  };
 
   const remember = (id: string | null) => {
     setSteamId(id);
@@ -181,10 +193,12 @@ export function InventoryPage() {
   const loadManual = async () => {
     setLoading(true);
     try {
+      const effectiveId = steamId ?? clientSteamId();
+      if (effectiveId) remember(effectiveId);
       const resp = await api.inventoryManual(
         tradableParsed?.error ? null : (tradableParsed?.data ?? null),
         protectedParsed?.error ? null : (protectedParsed?.data ?? null),
-        steamId,
+        effectiveId,
       );
       afterLoad(resp);
     } catch (err) {
@@ -202,7 +216,7 @@ export function InventoryPage() {
     setLoading(true);
     try {
       const parsed = JSON.parse(await file.text());
-      afterLoad(await api.inventoryUpload(parsed, steamId));
+      afterLoad(await api.inventoryUpload(parsed, steamId ?? clientSteamId()));
     } catch (err) {
       push({
         kind: "error",
@@ -217,6 +231,14 @@ export function InventoryPage() {
     }
   };
 
+  const itemSort = useSortable<InventoryRow>("line_value_cents", "desc");
+  const sortedItems = useMemo(
+    () => itemSort.apply(result?.items ?? []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [result, itemSort.field, itemSort.dir],
+  );
+  const itemPages = usePagination(sortedItems, "inv");
+
   const counts = result?.context_counts;
   const contextNote =
     counts && counts.trade_protected > 0
@@ -226,6 +248,21 @@ export function InventoryPage() {
     history.length >= 2
       ? history[history.length - 1].total_value_cents - history[0].total_value_cents
       : null;
+
+  if (restoring) {
+    return (
+      <div className="stack fade-in">
+        <div className="page-head">
+          <div>
+            <h1>Inventory value</h1>
+            <p>Restoring your last session…</p>
+          </div>
+        </div>
+        <SkeletonTiles />
+        <SkeletonRows rows={6} height={46} />
+      </div>
+    );
+  }
 
   return (
     <div className="stack fade-in">
@@ -387,14 +424,14 @@ export function InventoryPage() {
             <table className="data">
               <thead>
                 <tr>
-                  <th>Item</th>
-                  <th className="right">Qty</th>
-                  <th className="right">Each</th>
-                  <th className="right">Line total</th>
+                  <Th sort={itemSort} field="market_hash_name">Item</Th>
+                  <Th sort={itemSort} field="quantity" right>Qty</Th>
+                  <Th sort={itemSort} field="reference_price_cents" right>Each</Th>
+                  <Th sort={itemSort} field="line_value_cents" right>Line total</Th>
                 </tr>
               </thead>
               <tbody>
-                {result.items.slice(0, 200).map((row) => (
+                {itemPages.rows.map((row) => (
                   <tr key={row.market_hash_name}>
                     <td>
                       <div className="cell-item">
@@ -418,9 +455,7 @@ export function InventoryPage() {
               </tbody>
             </table>
           </div>
-          {result.items.length > 200 && (
-            <p className="xsmall muted">Showing the 200 most valuable lines of {result.items.length}.</p>
-          )}
+          <Pagination state={itemPages} label="items" />
         </>
       )}
 

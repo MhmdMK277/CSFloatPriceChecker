@@ -1,14 +1,17 @@
 /** Watchlists: named groups with totals, per-item deltas, refresh and export. */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, ApiError } from "../api";
 import { Delta } from "../components/Delta";
 import { SearchBox } from "../components/SearchBox";
 import { SkeletonRows } from "../components/Skeleton";
+import { Th, useSortable } from "../components/tableUtils";
 import { useToasts } from "../components/Toasts";
 import { timeAgo, usd } from "../format";
-import type { WatchlistDetail, WatchlistSummary } from "../types";
+import type { WatchlistDetail, WatchlistItem, WatchlistSummary } from "../types";
+
+type SortableWatchItem = WatchlistItem & { change_cents: number | null };
 
 export function WatchlistsPage() {
   const { push } = useToasts();
@@ -71,6 +74,19 @@ export function WatchlistsPage() {
 
   const total = selected?.items.reduce((sum, i) => sum + (i.last_price_cents ?? 0), 0) ?? 0;
   const prevTotal = selected?.items.reduce((sum, i) => sum + (i.prev_price_cents ?? 0), 0) ?? 0;
+
+  const sort = useSortable<SortableWatchItem>(null);
+  const sortedItems = useMemo(() => {
+    const rows: SortableWatchItem[] = (selected?.items ?? []).map((i) => ({
+      ...i,
+      change_cents:
+        i.last_price_cents !== null && i.prev_price_cents !== null
+          ? i.last_price_cents - i.prev_price_cents
+          : null,
+    }));
+    return sort.apply(rows);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, sort.field, sort.dir]);
 
   return (
     <div className="stack fade-in">
@@ -165,15 +181,15 @@ export function WatchlistsPage() {
                   <table className="data">
                     <thead>
                       <tr>
-                        <th>Item</th>
-                        <th className="right">Lowest price</th>
-                        <th className="right">Change</th>
+                        <Th sort={sort} field="market_hash_name">Item</Th>
+                        <Th sort={sort} field="last_price_cents" right>Lowest price</Th>
+                        <Th sort={sort} field="change_cents" right>Change</Th>
                         <th className="right">Checked</th>
                         <th aria-label="actions" />
                       </tr>
                     </thead>
                     <tbody>
-                      {selected.items.map((item) => (
+                      {sortedItems.map((item) => (
                         <tr key={item.id}>
                           <td>
                             <Link

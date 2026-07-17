@@ -49,7 +49,14 @@ class ManualLoad(BaseModel):
 async def _persist_result(
     ctx: AppContext, steam_id: str | None, result: dict, *, method: str
 ) -> None:
-    """Remember the session and record a snapshot for history."""
+    """Remember the session and record a snapshot for history.
+
+    Falls back to the remembered SteamID so a manual paste or upload that
+    arrives without one (user never clicked Fetch this session) still lands
+    in that user's history instead of being dropped.
+    """
+    if not steam_id:
+        steam_id = await ctx.storage.get_setting("last_steam_id")
     if steam_id:
         await ctx.storage.set_setting("last_steam_id", steam_id)
         await ctx.storage.save_inventory_snapshot(

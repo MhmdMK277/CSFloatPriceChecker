@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { api, ApiError } from "../api";
 import { SearchBox } from "../components/SearchBox";
 import { SkeletonRows } from "../components/Skeleton";
+import { Pagination, usePagination } from "../components/tableUtils";
 import { useToasts } from "../components/Toasts";
 import { floatShort, timeAgo, usd } from "../format";
 import type { Alert, AlertEvent, ItemVariant } from "../types";
@@ -20,10 +21,11 @@ export function AlertsPage() {
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
-    const [a, e] = await Promise.all([api.alerts(), api.alertEvents(50)]);
+    const [a, e] = await Promise.all([api.alerts(), api.alertEvents(500)]);
     setAlerts(a.alerts);
     setEvents(e.events);
   }, []);
+  const eventPages = usePagination(events, "ev");
 
   useEffect(() => {
     load().catch(() => setAlerts([]));
@@ -212,7 +214,7 @@ export function AlertsPage() {
                 </tr>
               </thead>
               <tbody>
-                {events.map((event) => (
+                {eventPages.rows.map((event) => (
                   <tr key={event.id}>
                     <td className="xsmall muted num">{timeAgo(event.ts)}</td>
                     <td>{event.market_hash_name}</td>
@@ -235,6 +237,7 @@ export function AlertsPage() {
               </tbody>
             </table>
           </div>
+          <Pagination state={eventPages} label="events" />
         </div>
       )}
     </div>

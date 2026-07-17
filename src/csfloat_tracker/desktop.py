@@ -41,16 +41,37 @@ def _setup_logging() -> None:
     )
 
 
-def _already_running() -> bool:
-    """True when another CSFloat Tracker instance answers on our port."""
+def _running_instance_version() -> str | None:
+    """Version of another CSFloat Tracker instance on our port, if any."""
     import json
     import urllib.request
 
     try:
         with urllib.request.urlopen(f"{URL}/api/status", timeout=1.5) as resp:
-            return "version" in json.loads(resp.read())
+            return json.loads(resp.read()).get("version")
     except Exception:
-        return False
+        return None
+
+
+def _alert_stale_instance(running_version: str, our_version: str) -> None:
+    """Warn that an older instance is holding the port.
+
+    Without this, double-clicking a freshly downloaded build while the old
+    tray icon is still alive silently opens the OLD app — the user thinks
+    they're on the new version and files bugs against it.
+    """
+    message = (
+        f"CSFloat Tracker v{running_version} is already running, but you launched "
+        f"v{our_version}.\n\nQuit the old version first (right-click the amber tray "
+        "icon -> Quit), then start this one again."
+    )
+    logger.warning("Stale instance: running=%s launched=%s", running_version, our_version)
+    if sys.platform == "win32":
+        import ctypes
+
+        ctypes.windll.user32.MessageBoxW(0, message, "CSFloat Tracker", 0x30)  # MB_ICONWARNING
+    elif sys.stderr is not None:
+        print(message, file=sys.stderr)
 
 
 def _make_server():
@@ -130,11 +151,17 @@ def _run_console(server, server_thread: threading.Thread) -> None:
 
 
 def main() -> None:
+    from . import __version__
+
     _setup_logging()
 
-    if _already_running():
-        logger.info("Another instance is already running; opening the browser instead.")
-        webbrowser.open(URL)
+    running = _running_instance_version()
+    if running is not None:
+        if running != __version__:
+            _alert_stale_instance(running, __version__)
+        else:
+            logger.info("Instance already running; opening the browser instead.")
+            webbrowser.open(URL)
         return
 
     server = _make_server()

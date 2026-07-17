@@ -8,8 +8,8 @@ import { ListingsTable } from "../components/ListingsTable";
 import { PriceChart } from "../components/PriceChart";
 import { SkeletonRows, SkeletonTiles } from "../components/Skeleton";
 import { useToasts } from "../components/Toasts";
-import { floatFull, intervalLabel, usd } from "../format";
-import type { HistoryResponse, ItemVariant, Listing, MarketFeeRow } from "../types";
+import { floatFull, intervalLabel, timeAgo, usd } from "../format";
+import type { HistoryResponse, ItemVariant, Listing, MarketCompare } from "../types";
 
 const INTERVALS = [60, 300, 900, 3600, 86400];
 
@@ -22,7 +22,7 @@ export function ItemPage() {
   const [variant, setVariant] = useState<ItemVariant | null>(null);
   const [history, setHistory] = useState<HistoryResponse | null>(null);
   const [listings, setListings] = useState<Listing[] | null>(null);
-  const [fees, setFees] = useState<MarketFeeRow[] | null>(null);
+  const [compare, setCompare] = useState<MarketCompare | null>(null);
   const [tracking, setTracking] = useState<{ id: number; interval: number } | null>(null);
   const [trackInterval, setTrackInterval] = useState(900);
   const [busy, setBusy] = useState(false);
@@ -31,16 +31,12 @@ export function ItemPage() {
     setVariant(null);
     setHistory(null);
     setListings(null);
-    setFees(null);
+    setCompare(null);
+    api.itemDetail(itemName).then(setVariant).catch(() => setVariant(null));
     api
-      .itemDetail(itemName)
-      .then((v) => {
-        setVariant(v);
-        if (v.reference_price_cents) {
-          api.marketFees(v.reference_price_cents).then((f) => setFees(f.marketplaces)).catch(() => {});
-        }
-      })
-      .catch(() => setVariant(null));
+      .marketsCompare(itemName)
+      .then(setCompare)
+      .catch((err) => console.error("marketsCompare failed:", err));
     api.history(itemName).then(setHistory).catch(() => {});
     api
       .tracked()
@@ -203,39 +199,67 @@ export function ItemPage() {
         </div>
       )}
 
-      {fees && variant?.reference_price_cents && (
-        <div className="panel stack" aria-label="Where to sell">
+      {compare && compare.sell.length > 0 && (
+        <div className="panel stack" aria-label="Marketplace comparison">
           <div className="row spread">
-            <h2>If you sold at the reference price ({usd(variant.reference_price_cents)})</h2>
+            <h2>Marketplace comparison</h2>
             <span className="xsmall muted">
-              Standard seller fees — details in the <a className="link-accent" href="/guide">Guide</a>
+              Fees explained in the <a className="link-accent" href="/guide">Guide</a>
             </span>
           </div>
-          <div className="table-wrap">
-            <table className="data">
-              <thead>
-                <tr>
-                  <th>Marketplace</th>
-                  <th className="right">Fee</th>
-                  <th className="right">You receive</th>
-                  <th>Payout</th>
-                  <th>Worth knowing</th>
-                </tr>
-              </thead>
-              <tbody>
-                {fees.map((row, i) => (
-                  <tr key={row.key}>
-                    <td style={{ fontWeight: i === 0 ? 600 : 400 }}>{row.name}</td>
-                    <td className="right num">{row.seller_fee_pct}%</td>
-                    <td className="right num" style={{ fontWeight: 600 }}>
-                      {usd(row.net_cents ?? null)}
-                    </td>
-                    <td className="small muted">{row.payout}</td>
-                    <td className="xsmall muted" style={{ maxWidth: 340 }}>{row.note}</td>
+          <div className="row" style={{ gap: 24, alignItems: "start", flexWrap: "wrap" }}>
+            <div className="stack" style={{ gap: 6, minWidth: 220 }}>
+              <span className="xsmall muted" style={{ letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600 }}>
+                Buy — lowest known price
+              </span>
+              <div className="row spread" style={{ gap: 16 }}>
+                <span>CSFloat <span className="xsmall muted">(reference)</span></span>
+                <span className="num" style={{ fontWeight: 600 }}>
+                  {usd(compare.buy.csfloat_reference_cents)}
+                </span>
+              </div>
+              <div className="row spread" style={{ gap: 16 }}>
+                <span>
+                  Skinport{" "}
+                  {compare.buy.skinport_quantity !== null && (
+                    <span className="xsmall muted">({compare.buy.skinport_quantity} listed)</span>
+                  )}
+                </span>
+                <span className="num" style={{ fontWeight: 600 }}>
+                  {usd(compare.buy.skinport_min_cents)}
+                </span>
+              </div>
+              {compare.buy.skinport_updated_at && (
+                <span className="xsmall muted">Skinport feed updated {timeAgo(compare.buy.skinport_updated_at)}</span>
+              )}
+            </div>
+            <div className="table-wrap" style={{ flex: "1 1 420px" }}>
+              <table className="data">
+                <thead>
+                  <tr>
+                    <th>
+                      Sell at {usd(compare.buy.csfloat_reference_cents ?? compare.buy.skinport_min_cents)} on…
+                    </th>
+                    <th className="right">Fee</th>
+                    <th className="right">You receive</th>
+                    <th>Payout</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {compare.sell.map((row, i) => (
+                    <tr key={row.key} title={row.note}>
+                      <td style={{ fontWeight: i === 0 ? 600 : 400 }}>
+                        {row.name}
+                        {row.live_prices && <span className="badge accent" style={{ marginLeft: 6 }}>live</span>}
+                      </td>
+                      <td className="right num">{row.seller_fee_pct}%</td>
+                      <td className="right num" style={{ fontWeight: 600 }}>{usd(row.net_cents ?? null)}</td>
+                      <td className="xsmall muted">{row.payout}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

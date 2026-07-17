@@ -1,13 +1,14 @@
 /** Portfolio: buys vs current reference value, P&L and ROI. */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, ApiError } from "../api";
 import { SearchBox } from "../components/SearchBox";
 import { SkeletonRows } from "../components/Skeleton";
+import { Pagination, Th, usePagination, useSortable } from "../components/tableUtils";
 import { useToasts } from "../components/Toasts";
 import { pct, usd } from "../format";
-import type { ItemVariant, PortfolioResponse } from "../types";
+import type { ItemVariant, PortfolioEntry, PortfolioResponse } from "../types";
 
 export function PortfolioPage() {
   const { push } = useToasts();
@@ -47,6 +48,13 @@ export function PortfolioPage() {
   };
 
   const totalPnl = portfolio?.total_pnl_cents ?? null;
+  const sort = useSortable<PortfolioEntry>("pnl_cents", "desc");
+  const sortedEntries = useMemo(
+    () => sort.apply(portfolio?.entries ?? []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [portfolio, sort.field, sort.dir],
+  );
+  const pages = usePagination(sortedEntries, "pf");
 
   return (
     <div className="stack fade-in">
@@ -138,21 +146,22 @@ export function PortfolioPage() {
               Add your buys above to see live P&amp;L against the market.
             </div>
           ) : (
+            <>
             <div className="table-wrap">
               <table className="data">
                 <thead>
                   <tr>
-                    <th>Item</th>
-                    <th className="right">Qty</th>
-                    <th className="right">Paid</th>
-                    <th className="right">Now</th>
-                    <th className="right">P&amp;L</th>
-                    <th className="right">ROI</th>
+                    <Th sort={sort} field="market_hash_name">Item</Th>
+                    <Th sort={sort} field="quantity" right>Qty</Th>
+                    <Th sort={sort} field="buy_price_cents" right>Paid</Th>
+                    <Th sort={sort} field="current_price_cents" right>Now</Th>
+                    <Th sort={sort} field="pnl_cents" right>P&amp;L</Th>
+                    <Th sort={sort} field="roi_pct" right>ROI</Th>
                     <th aria-label="actions" />
                   </tr>
                 </thead>
                 <tbody>
-                  {portfolio.entries.map((entry) => (
+                  {pages.rows.map((entry) => (
                     <tr key={entry.id}>
                       <td>
                         <Link
@@ -195,6 +204,8 @@ export function PortfolioPage() {
                 </tbody>
               </table>
             </div>
+            <Pagination state={pages} label="positions" />
+            </>
           )}
         </>
       )}
