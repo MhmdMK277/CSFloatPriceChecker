@@ -105,7 +105,7 @@ def _remove_from_fallback(account: str) -> None:
         logger.warning("Secret file update failed: %s", exc)
 
 
-# CSFloat API key — the original, most-used secret keeps its short helpers.
+# CSFloat API key - the original, most-used secret keeps its short helpers.
 
 def get_api_key() -> str | None:
     return get_secret(ACCOUNT)

@@ -52,8 +52,8 @@ Example history file:
 
 After showing search results you can opt in to tracking. Two modes are available:
 
-1. **Alerts** – get notified when a listing meets your price or float filters.
-2. **Price evolution** – log every listing's price and float over time to `tracked_logs/<item>.csv`.
+1. **Alerts** - get notified when a listing meets your price or float filters.
+2. **Price evolution** - log every listing's price and float over time to `tracked_logs/<item>.csv`.
 
 You can enable either or both modes. When price tracking is enabled a small window opens showing progress; click **Stop** to cancel.
 

@@ -13,10 +13,10 @@ Most AI-generated UI fails on colour. It picks blue. It uses pure black. It draw
 
 A complete Hallmark palette has four layers.
 
-1. **Paper** — the base surface. `oklch(96–98% 0.005–0.015 <anchor hue>)` for light mode, `oklch(12–16% 0.008–0.015 <anchor hue>)` for dark.
-2. **Ink** — the primary text. `oklch(16–22% 0.005–0.015 <anchor hue>)` for light mode, `oklch(92–96% 0.005–0.01 <anchor hue>)` for dark.
-3. **Neutrals** — 5 to 9 steps between Paper and Ink, each with the anchor's chroma tint at low values (0.005–0.015).
-4. **Accent** — one saturated colour with meaningful chroma (0.12–0.22). Used for links, active states, highlights, focus rings. Never as a background fill that covers more than a few percent of the surface.
+1. **Paper** - the base surface. `oklch(96-98% 0.005-0.015 <anchor hue>)` for light mode, `oklch(12-16% 0.008-0.015 <anchor hue>)` for dark.
+2. **Ink** - the primary text. `oklch(16-22% 0.005-0.015 <anchor hue>)` for light mode, `oklch(92-96% 0.005-0.01 <anchor hue>)` for dark.
+3. **Neutrals** - 5 to 9 steps between Paper and Ink, each with the anchor's chroma tint at low values (0.005-0.015).
+4. **Accent** - one saturated colour with meaningful chroma (0.12-0.22). Used for links, active states, highlights, focus rings. Never as a background fill that covers more than a few percent of the surface.
 
 Example (warm-oat anchor, hue 80):
 
@@ -63,10 +63,10 @@ Verify with the browser devtools vision-deficiency emulator before shipping.
 
 ## Dark mode recipe
 
-- Paper: lightness 12–18% (not `#000`).
-- Ink: lightness 92–96% (not `#fff`).
+- Paper: lightness 12-18% (not `#000`).
+- Ink: lightness 92-96% (not `#fff`).
 - Body font-weight: reduce by 50 units (400 → 350) to compensate for the optical weight of light text on dark.
-- Accent: reduce chroma by 0.02–0.04; increase lightness by 5–10%.
+- Accent: reduce chroma by 0.02-0.04; increase lightness by 5-10%.
 - Elevation: higher surfaces are *lighter*, not darker. Add ~3% lightness per level.
 - Never switch the hue between modes. Keep the anchor. Only lightness and chroma move.
 
@@ -78,7 +78,7 @@ Verify with the browser devtools vision-deficiency emulator before shipping.
 - **Purple-to-cyan gradients, purple-to-blue gradients, orange-to-pink gradients.** Every LLM picks these. Don't.
 - **Accent as background fill** covering more than ~5% of any view.
 - **Grey text on coloured background.** Always reads washed out.
-- **Red–green pairing as the only signal.** Add an icon or pattern.
+- **Red-green pairing as the only signal.** Add an icon or pattern.
 - **Alpha transparency as the definition of a colour.** If it's a named token, it's opaque. Transparency is a *modifier* for overlays and shadows, not a palette.
 - **Three-colour gradients.** Two-stop gradients only. The third stop is vanity.
 

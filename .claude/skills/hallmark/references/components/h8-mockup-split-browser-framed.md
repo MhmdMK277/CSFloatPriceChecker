@@ -1,5 +1,5 @@
 ### H8 · Mockup Split (browser-framed)
-Headline left, browser-frame mockup right, the mockup tilted 1–3° for life. Frame can be browser chrome, macOS toolbar, minimal hairline, or floating no-frame.
+Headline left, browser-frame mockup right, the mockup tilted 1-3° for life. Frame can be browser chrome, macOS toolbar, minimal hairline, or floating no-frame.
 *Use when:* you're selling a web app and you have a clean, well-lit screenshot.
 *Don't confuse with:* H7 Clipped-Edge (which extends past the viewport) or H2 Split Diptych (which uses photography or proof column, not a product mockup).
 

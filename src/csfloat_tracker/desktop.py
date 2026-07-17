@@ -57,7 +57,7 @@ def _alert_stale_instance(running_version: str, our_version: str) -> None:
     """Warn that an older instance is holding the port.
 
     Without this, double-clicking a freshly downloaded build while the old
-    tray icon is still alive silently opens the OLD app — the user thinks
+    tray icon is still alive silently opens the OLD app - the user thinks
     they're on the new version and files bugs against it.
     """
     message = (
@@ -91,7 +91,7 @@ def _make_server():
 
 
 def _tray_icon_image():
-    """Amber trend-line on navy — drawn at runtime so we need no asset file."""
+    """Amber trend-line on navy - drawn at runtime so we need no asset file."""
     from PIL import Image, ImageDraw
 
     size = 64
@@ -123,7 +123,7 @@ def _run_tray(server, server_thread: threading.Thread) -> bool:
     icon = pystray.Icon(
         "csfloat-tracker",
         icon=_tray_icon_image(),
-        title=f"CSFloat Tracker — running on {URL}",
+        title=f"CSFloat Tracker - running on {URL}",
         menu=pystray.Menu(
             pystray.MenuItem("Open CSFloat Tracker", open_browser, default=True),
             pystray.MenuItem("Quit", quit_app),
@@ -179,7 +179,7 @@ def main() -> None:
             print("CSFloat Tracker failed to start. Check the log file in", data_dir() / "logs")
         raise SystemExit(1)
 
-    logger.info("Server up on %s — opening browser", URL)
+    logger.info("Server up on %s - opening browser", URL)
     webbrowser.open(URL)
 
     if not _run_tray(server, server_thread):

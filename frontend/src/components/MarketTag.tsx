@@ -1,4 +1,4 @@
-/** Colored marketplace source tag — every displayed price carries one so
+/** Colored marketplace source tag - every displayed price carries one so
  * there's never ambiguity about which market a number comes from. */
 
 const MARKET_META: Record<string, { label: string; color: string }> = {

@@ -110,7 +110,7 @@ export function ItemPage() {
               {variant?.item_type && <span className="badge">{variant.item_type}</span>}
               {variant?.min_float !== null && variant?.min_float !== undefined && (
                 <span className="badge num" title="Possible float range">
-                  {variant.min_float}–{variant.max_float}
+                  {variant.min_float}-{variant.max_float}
                 </span>
               )}
               {variant?.collection_names?.[0] && (
@@ -166,7 +166,7 @@ export function ItemPage() {
           <div className="tile">
             <div className="label">Tracked range</div>
             <div className="value" style={{ fontSize: "var(--text-md)" }}>
-              {summary?.points ? `${usd(summary.lowest_cents)} – ${usd(summary.highest_cents)}` : "—"}
+              {summary?.points ? `${usd(summary.lowest_cents)} - ${usd(summary.highest_cents)}` : "-"}
             </div>
           </div>
           <div className="tile">
@@ -196,7 +196,7 @@ export function ItemPage() {
         <div className="panel empty">
           <h3>No price history yet</h3>
           Hit “Track price” and the background worker will record snapshots on your chosen
-          interval — the chart appears after two data points.
+          interval - the chart appears after two data points.
         </div>
       )}
 
@@ -211,7 +211,7 @@ export function ItemPage() {
           <div className="row" style={{ gap: 24, alignItems: "start", flexWrap: "wrap" }}>
             <div className="stack" style={{ gap: 6, minWidth: 220 }}>
               <span className="xsmall muted" style={{ letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600 }}>
-                Buy — lowest known price
+                Buy - lowest known price
               </span>
               <div className="row spread" style={{ gap: 16 }}>
                 <span className="row" style={{ gap: 6 }}>
@@ -269,7 +269,7 @@ export function ItemPage() {
       )}
 
       <div className="stack" style={{ gap: 8 }}>
-        <h2>Live listings — lowest first</h2>
+        <h2>Live listings - lowest first</h2>
         {listings === null ? (
           <SkeletonRows rows={6} height={52} />
         ) : listings.length > 0 ? (

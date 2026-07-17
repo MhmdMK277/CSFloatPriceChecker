@@ -40,7 +40,7 @@ export function SettingsPage({ onStatusChange }: { onStatusChange: () => void })
       push({
         kind: "info",
         title: "API key",
-        body: `Validated as ${resp.profile?.username ?? "CSFloat user"} — stored in ${resp.stored_in === "keychain" ? "the OS keychain" : "a local file"}.`,
+        body: `Validated as ${resp.profile?.username ?? "CSFloat user"} - stored in ${resp.stored_in === "keychain" ? "the OS keychain" : "a local file"}.`,
       });
       setKey("");
       await load();
@@ -105,13 +105,13 @@ export function SettingsPage({ onStatusChange }: { onStatusChange: () => void })
           <p className="small muted">
             Get one at <strong>csfloat.com → Profile → Developer</strong>. The key is validated
             against CSFloat before being stored in{" "}
-            {status?.api_key_storage === "keychain" ? "your OS keychain" : "a local file"} — it
+            {status?.api_key_storage === "keychain" ? "your OS keychain" : "a local file"} - it
             never leaves this machine.
           </p>
           <div className="row">
             <input
               type="password"
-              placeholder={status?.api_key_set ? "Key is set — paste to replace" : "Paste your API key"}
+              placeholder={status?.api_key_set ? "Key is set - paste to replace" : "Paste your API key"}
               value={key}
               onChange={(e) => setKey(e.target.value)}
               style={{ flex: 1 }}
@@ -157,7 +157,7 @@ export function SettingsPage({ onStatusChange }: { onStatusChange: () => void })
             </p>
           )}
           <p className="small muted">
-            Rebuilt from CSFloat’s public schema — new skins, cases and charms appear after a
+            Rebuilt from CSFloat’s public schema - new skins, cases and charms appear after a
             refresh. Auto-refreshes when older than 7 days.
           </p>
           <button
@@ -186,7 +186,7 @@ export function SettingsPage({ onStatusChange }: { onStatusChange: () => void })
           </div>
           <hr className="rule" />
           <p className="small muted">
-            <strong>CSPriceAPI key</strong> (optional) — unlocks Buff163 / SkinBaron / C5Game
+            <strong>CSPriceAPI key</strong> (optional) - unlocks Buff163 / SkinBaron / C5Game
             reference prices in a future update. Get one at{" "}
             <a className="link-accent" href="https://cspriceapi.com" target="_blank" rel="noreferrer">
               cspriceapi.com
@@ -268,7 +268,7 @@ export function SettingsPage({ onStatusChange }: { onStatusChange: () => void })
           <h2 id="s-tracked">Background tracking</h2>
           {tracked.length === 0 ? (
             <p className="small muted">
-              Nothing tracked yet — open any item page and hit “Track price”.
+              Nothing tracked yet - open any item page and hit “Track price”.
             </p>
           ) : (
             <div className="table-wrap">

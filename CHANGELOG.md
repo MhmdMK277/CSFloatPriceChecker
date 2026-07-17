@@ -1,11 +1,11 @@
 # Changelog
 
-## 1.4.1 — 2026-07-18
+## 1.4.1 - 2026-07-18
 
 ### Fixed
 - **Inventory can no longer disappear when navigating between pages.** The
   page state (loaded valuation, pasted JSON, SteamID input, history) now
-  lives in an in-memory cache that survives route changes unconditionally —
+  lives in an in-memory cache that survives route changes unconditionally -
   returning to Inventory renders instantly from memory, with the SQLite
   snapshot only needed across app restarts. Previously the page was rebuilt
   from a backend round-trip on every visit, so any hiccup in that chain
@@ -13,13 +13,13 @@
 - **Every price is labeled with its marketplace.** A colored source tag
   (● CSFloat blue, ● Skinport teal, ● Steam grey) now sits next to prices on
   the item page buy/sell comparison, live listings, deals, inventory,
-  watchlists — no more guessing which number came from where.
+  watchlists - no more guessing which number came from where.
 
-## 1.4.0 — 2026-07-18
+## 1.4.0 - 2026-07-18
 
 ### Fixed
 - **Stale-instance trap**: launching a newly downloaded build while an older
-  version was still in the system tray silently opened the old app — making
+  version was still in the system tray silently opened the old app - making
   new features (like v1.3.0's inventory persistence) look broken. The
   launcher now detects the version mismatch and shows a warning telling you
   to quit the old tray instance first.
@@ -32,7 +32,7 @@
 ### Added
 - **Skinport integration** (no key needed): the public price feed is cached
   locally and refreshed in the background. Item pages show a marketplace
-  comparison — lowest CSFloat vs Skinport buy price, and net sell payouts
+  comparison - lowest CSFloat vs Skinport buy price, and net sell payouts
   across six marketplaces with Skinport's tiered fees (12%/9%/6%). The deal
   finder cross-validates every hit ("cheaper on Skinport at $X" / "best
   price across CSFloat + Skinport").
@@ -44,7 +44,7 @@
 - Windows SmartScreen notice in the README; SignPath code-signing tracked
   upstream.
 
-## 1.3.0 — 2026-07-17
+## 1.3.0 - 2026-07-17
 
 ### Added
 - **Inventory persistence**: your SteamID64/profile input is remembered
@@ -54,11 +54,11 @@
   If you loaded manually last time, Manual Load starts expanded.
 - **Marketplace fee comparison**: every item page shows what you'd receive
   selling at the reference price on CSFloat (2%), Buff163 (2.5%), DMarket
-  (~5%), Skinport (12%) and Steam (15%, wallet-locked) — payout methods and
+  (~5%), Skinport (12%) and Steam (15%, wallet-locked) - payout methods and
   caveats included. New `GET /api/markets/fees` endpoint.
-- **Deal reasons**: the deal finder now explains each hit in trader terms —
+- **Deal reasons**: the deal finder now explains each hit in trader terms -
   "top 1% float for FT", "costs less than the MW reference", "~$40 in
-  stickers included" — in the feed, live toasts and Discord messages.
+  stickers included" - in the feed, live toasts and Discord messages.
 - **Trader's Guide page**: floats & wear brackets, pattern lore (blue gems,
   Doppler phases, fades), the 7-day market lock and April 2024
   trade-protection, the fee table, how this app prices things, and a
@@ -70,11 +70,11 @@
 - README rewritten for traders: leads with what the tool does that browsing
   CSFloat.com doesn't.
 
-## 1.2.0 — 2026-07-17
+## 1.2.0 - 2026-07-17
 
 ### Added
 - **Inventory Manual Load** (SkinSearch-style): open your own inventory JSON
-  links in the browser and paste the responses — reliable regardless of
+  links in the browser and paste the responses - reliable regardless of
   Steam's server-side rate limiting. Live validation shows the detected item
   count per paste; both inventory contexts (2 tradable, 16 trade-protected
   since Steam's April 2024 update) merge with per-context counts and
@@ -86,10 +86,10 @@
 - Auto-fetch now also attempts the trade-protected context (best effort) and
   flags truncated responses (`more_items`) with advice to raise `count=`.
 
-## 1.1.0 — 2026-07-17
+## 1.1.0 - 2026-07-17
 
 ### Added
-- **Downloadable desktop app** — single-file executables built with
+- **Downloadable desktop app** - single-file executables built with
   PyInstaller (`CSFloatTracker-Windows.exe`, `-Linux`, `-macOS`).
   Double-click → server starts → browser opens. Windows build is windowed
   with a system-tray icon (Open / Quit); launching a second instance just
@@ -102,7 +102,7 @@
 - Bundle-aware path resolution (PyInstaller `sys._MEIPASS`) for the item
   catalog, graffiti supplement and frontend static files
 
-## 1.0.0 — 2026-07-16
+## 1.0.0 - 2026-07-16
 
 Complete renovation of the original CLI/tkinter prototype into a self-hosted
 web application.
@@ -110,7 +110,7 @@ web application.
 ### Added
 - Async CSFloat API client: header-aware per-endpoint rate limiting,
   exponential backoff, TTL caching, typed error hierarchy
-- Item catalog built from CSFloat's public schema — 35,000+ market names with
+- Item catalog built from CSFloat's public schema - 35,000+ market names with
   per-wear reference prices, Doppler-phase merging, vanilla knives, graffiti
   supplement; ships offline baseline, auto-refreshes after 7 days
 - Ranked autocomplete (prefix → word-prefix → substring → fuzzy)

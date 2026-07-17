@@ -114,7 +114,7 @@ export function SearchPage() {
       <div className="page-head">
         <div>
           <h1>Market search</h1>
-          <p>Live CSFloat listings — pick an item, tune the filters, hit search.</p>
+          <p>Live CSFloat listings - pick an item, tune the filters, hit search.</p>
         </div>
       </div>
 
@@ -342,7 +342,7 @@ export function SearchPage() {
       ) : (
         <div className="empty">
           <h3>Search the CS2 market</h3>
-          Type <span className="num">/</span> to search — autocomplete covers skins, knives,
+          Type <span className="num">/</span> to search - autocomplete covers skins, knives,
           gloves, stickers, cases, charms and more.
         </div>
       )}

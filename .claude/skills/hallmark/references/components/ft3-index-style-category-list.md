@@ -1,5 +1,5 @@
 ### Ft3 · Index-style category list
-Three or four short columns, each headed by a category in small caps, holding 4–6 links each.
+Three or four short columns, each headed by a category in small caps, holding 4-6 links each.
 *Use when:* the page is a hub or a documentation root.
 *Don't confuse with:* Ft4 Dense typographic (which is one big block, not columns).
 

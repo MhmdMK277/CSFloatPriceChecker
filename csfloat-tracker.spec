@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(SPECPATH)
 
 if not (ROOT / "frontend" / "dist" / "index.html").exists():
-    raise SystemExit("frontend/dist is missing — run `npm run build` in frontend/ first.")
+    raise SystemExit("frontend/dist is missing - run `npm run build` in frontend/ first.")
 
 datas = [
     (str(ROOT / "data" / "cs2_items.json"), "data"),
@@ -70,7 +70,7 @@ exe = EXE(
     strip=False,
     upx=False,
     # Windows: windowed app parked in the system tray (logs go to the data
-    # dir). Linux/macOS: console binary — tray backends vary too much there.
+    # dir). Linux/macOS: console binary - tray backends vary too much there.
     console=(sys.platform != "win32"),
     icon=str(_icon) if sys.platform == "win32" and _icon.exists() else None,
     version=str(_version_file) if sys.platform == "win32" and _version_file.exists() else None,

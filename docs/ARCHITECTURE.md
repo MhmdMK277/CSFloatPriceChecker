@@ -36,7 +36,7 @@ inventory fetches) `steamcommunity.com`.
       csfloat.com/api/v1        steamcommunity.com (public inv)
 ```
 
-The CLI (`cli.py`) is a thin typer wrapper over the same `core/` modules —
+The CLI (`cli.py`) is a thin typer wrapper over the same `core/` modules -
 no logic lives in it.
 
 ## Key decisions
@@ -62,7 +62,7 @@ when older than 7 days (`ItemDatabase.ensure_fresh`, never blocking startup).
 
 **Reference prices are the workhorse.** Deal scoring, inventory valuation and
 portfolio P&L all read them from the catalog instead of hammering `/listings`
-— an entire inventory prices in microseconds with zero API budget.
+- an entire inventory prices in microseconds with zero API budget.
 
 ### Rate limiting
 
@@ -92,12 +92,12 @@ backend holds it.
 
 A single asyncio task ticks every 15 s (`server/worker.py`):
 
-1. **Tracking** — any active tracked item past its interval gets a listings
+1. **Tracking** - any active tracked item past its interval gets a listings
    fetch; the summary (min/avg/median/count/best float) becomes a snapshot.
-2. **Alerts** (every 60 s) — one filtered listings query per active alert;
+2. **Alerts** (every 60 s) - one filtered listings query per active alert;
    matches are deduplicated per listing id via the alert-event log, so an
    alert fires exactly once per listing.
-3. **Deal scan** (configurable) — newest `buy_now` listings compared against
+3. **Deal scan** (configurable) - newest `buy_now` listings compared against
    reference prices; hits are recorded (deduped by listing id), broadcast over
    WebSocket, and optionally posted to a Discord webhook.
 
@@ -109,7 +109,7 @@ maps them to clean JSON (`{"error": "..."}`); stack traces never reach the UI.
 
 ### Frontend
 
-Vite + React 18 + TypeScript, no UI framework — the design system is ~700
+Vite + React 18 + TypeScript, no UI framework - the design system is ~700
 lines of hand-written CSS on OKLCH custom properties (see
 `frontend/src/styles/tokens.css`, stamped with its design provenance).
 Charts are TradingView `lightweight-charts`. Live updates arrive over
@@ -122,5 +122,5 @@ SPA fallback so deep links work.
 expansion against a synthetic schema, storage CRUD, search ranking, stats) and
 the full REST surface through an in-process ASGI transport, plus worker
 behavior (snapshot intervals, alert dedup, deal scoring). CI runs ruff +
-pytest (coverage gate 70%) on Python 3.11–3.13, typechecks/builds the
+pytest (coverage gate 70%) on Python 3.11-3.13, typechecks/builds the
 frontend, and builds the Docker image.

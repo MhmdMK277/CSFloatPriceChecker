@@ -1,6 +1,6 @@
 
 ### F1 · Bento grid
-Asymmetric grid of 8–15 tiles in mixed spans (1×1, 2×1, 1×2, 2×2). Visual rhythm via size.
+Asymmetric grid of 8-15 tiles in mixed spans (1×1, 2×1, 1×2, 2×2). Visual rhythm via size.
 *Use when:* multiple equally-valid entry points; SaaS feature page.
 *Don't confuse with:* F2 Sticky-scroll (which stacks vertically with sticky pacing).
 

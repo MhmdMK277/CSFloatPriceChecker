@@ -126,7 +126,7 @@ export function PortfolioPage() {
               <div className="label">Unrealized P&amp;L</div>
               <div className="value">
                 {totalPnl === null ? (
-                  "—"
+                  "-"
                 ) : (
                   <span className={`delta ${totalPnl > 0 ? "up" : totalPnl < 0 ? "down" : "flat"}`}>
                     {totalPnl > 0 ? "▲" : totalPnl < 0 ? "▼" : "•"} {usd(Math.abs(totalPnl))}
@@ -177,7 +177,7 @@ export function PortfolioPage() {
                       <td className="right num">{usd(entry.current_price_cents)}</td>
                       <td className="right">
                         {entry.pnl_cents === null ? (
-                          <span className="delta flat">—</span>
+                          <span className="delta flat">-</span>
                         ) : (
                           <span
                             className={`delta ${entry.pnl_cents > 0 ? "up" : entry.pnl_cents < 0 ? "down" : "flat"}`}
@@ -187,7 +187,7 @@ export function PortfolioPage() {
                           </span>
                         )}
                       </td>
-                      <td className="right num">{entry.roi_pct !== null ? pct(entry.roi_pct) : "—"}</td>
+                      <td className="right num">{entry.roi_pct !== null ? pct(entry.roi_pct) : "-"}</td>
                       <td className="right">
                         <button
                           className="btn sm ghost danger"

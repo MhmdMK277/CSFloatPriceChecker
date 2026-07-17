@@ -77,7 +77,7 @@ export function AlertsPage() {
           <h1>Alerts</h1>
           <p>
             The worker checks every active rule about once a minute and fires once per
-            listing — in-app, and to Discord if a webhook is set.
+            listing - in-app, and to Discord if a webhook is set.
           </p>
         </div>
       </div>
@@ -139,7 +139,7 @@ export function AlertsPage() {
       ) : alerts.length === 0 ? (
         <div className="empty">
           <h3>No alerts yet</h3>
-          “Tell me when a Karambit Doppler FN goes under $1,100” — that kind of thing.
+          “Tell me when a Karambit Doppler FN goes under $1,100” - that kind of thing.
         </div>
       ) : (
         <div className="table-wrap">

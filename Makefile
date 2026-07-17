@@ -1,4 +1,4 @@
-# CSFloat Tracker — task runner
+# CSFloat Tracker - task runner
 # Windows users: run these via Git Bash, or use the commands inside each target directly.
 
 PY := .venv/bin/python

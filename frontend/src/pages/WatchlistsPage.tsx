@@ -115,7 +115,7 @@ export function WatchlistsPage() {
       ) : lists.length === 0 ? (
         <div className="empty">
           <h3>No watchlists yet</h3>
-          Create one above — “Dream Loadout”, “Investments”, whatever you’re tracking.
+          Create one above - “Dream Loadout”, “Investments”, whatever you’re tracking.
         </div>
       ) : (
         <>
@@ -176,7 +176,7 @@ export function WatchlistsPage() {
               />
 
               {selected.items.length === 0 ? (
-                <div className="empty">Empty — add items with the search box above.</div>
+                <div className="empty">Empty - add items with the search box above.</div>
               ) : (
                 <div className="table-wrap">
                   <table className="data">

@@ -49,7 +49,7 @@ class SearchIndex:
                 scored.append((75.0, len(name), name))
                 seen.add(i)
 
-        # Fuzzy fallback only when exact tiers are thin — it's the slow path.
+        # Fuzzy fallback only when exact tiers are thin - it's the slow path.
         if len(scored) < limit:
             candidates = {
                 i: low for i, low in enumerate(self._lower) if i not in seen

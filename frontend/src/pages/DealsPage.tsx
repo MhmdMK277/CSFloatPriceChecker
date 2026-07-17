@@ -135,7 +135,7 @@ export function DealsPage() {
       ) : deals.length === 0 ? (
         <div className="empty">
           <h3>No deals recorded yet</h3>
-          Turn scanning on and give it a few minutes — hits also arrive as live toasts.
+          Turn scanning on and give it a few minutes - hits also arrive as live toasts.
         </div>
       ) : (
         <>

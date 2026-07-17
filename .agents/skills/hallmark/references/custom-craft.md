@@ -1,8 +1,8 @@
-# Custom craft — how to hand-build hero artwork
+# Custom craft - how to hand-build hero artwork
 
-This file is loaded only when an enrichment archetype requires construction (Tier A or B in [`hero-enrichment.md`](hero-enrichment.md)). It tells you *which technique* to reach for at *which complexity tier* — and what each looks like done well.
+This file is loaded only when an enrichment archetype requires construction (Tier A or B in [`hero-enrichment.md`](hero-enrichment.md)). It tells you *which technique* to reach for at *which complexity tier* - and what each looks like done well.
 
-**The principle.** Custom-built artwork is the design. Library-picked artwork is a shortcut, and a good audience reads it as one. The skill's job is to make custom-build the path of least resistance — by knowing when CSS alone suffices, when SVG is right, when JS-driven animation earns its bundle cost, and when (rarely) Three.js is justified.
+**The principle.** Custom-built artwork is the design. Library-picked artwork is a shortcut, and a good audience reads it as one. The skill's job is to make custom-build the path of least resistance - by knowing when CSS alone suffices, when SVG is right, when JS-driven animation earns its bundle cost, and when (rarely) Three.js is justified.
 
 The 2026 canon is set by Lynn Fisher (*A Single Div*), Diana Smith (*Pure CSS Francine* / *Lace*), Rauno Freiberg, Paco Coursey, Jhey Tompkins, and Adam Argyle. The thread: constraint-driven, hand-crafted, performance-respecting, accessibility-embedded. Use the platform; don't fight it.
 
@@ -31,7 +31,7 @@ The 2026 canon is set by Lynn Fisher (*A Single Div*), Diana Smith (*Pure CSS Fr
 | `@property` | Smoothly-interpolated custom properties (colour, length, angle) | 88 %+ |
 | `animation-timeline: scroll() / view()` | Declarative scroll-linked motion, hardware-composited | Baseline 2025 (88 %) |
 
-### A worked example — the bakery loaf as a single div
+### A worked example - the bakery loaf as a single div
 
 ```html
 <div class="loaf" aria-label="A loaf of bread"></div>
@@ -82,19 +82,19 @@ That's a hand-built bakery centerpiece in about 25 lines, no asset, animated, ac
 
 ## Tier B · Hand-built SVG illustration
 
-**When.** Complex illustrations CSS can't express cleanly — characters, articulated figures, organic curves, multi-element scenes. The bakery's full storefront, the studio mascot, the workflow diagram with seven labelled paths.
+**When.** Complex illustrations CSS can't express cleanly - characters, articulated figures, organic curves, multi-element scenes. The bakery's full storefront, the studio mascot, the workflow diagram with seven labelled paths.
 
 **Effort:** medium (designing in Figma + cleaning the export).
 **Payoff:** very high (scales infinitely, compresses to < 10 KB, animatable).
-**Bundle cost:** the file size of the SVG — typically 4–15 KB inline.
+**Bundle cost:** the file size of the SVG - typically 4-15 KB inline.
 
 ### Pipeline
 
-1. **Design in Figma.** Use a component system (constraints, variants). Keep paths as paths — don't rasterise. Name layers; the export honours them.
+1. **Design in Figma.** Use a component system (constraints, variants). Keep paths as paths - don't rasterise. Name layers; the export honours them.
 2. **Export as SVG.** Figma's export is decent. Set "Outline strokes" only if you need stroke-as-fill animation; otherwise keep them strokes.
-3. **Run through [SVGOMG](https://jakearchibald.github.io/svgomg/)** — removes Figma metadata, unnecessary `<defs>`, redundant transforms. 30–60 % size reduction is typical.
+3. **Run through [SVGOMG](https://jakearchibald.github.io/svgomg/)** - removes Figma metadata, unnecessary `<defs>`, redundant transforms. 30-60 % size reduction is typical.
 4. **Inline the result in HTML** for animation, or save as `static.svg` and reference via `<img>` or CSS `background-image` for caching.
-5. **Animate declaratively** — CSS keyframes on `<path d="">` (Chrome, Edge, Safari support the `d` property), `@property`-driven attribute interpolation, or [Motion](https://motion.dev) for orchestrated sequences.
+5. **Animate declaratively** - CSS keyframes on `<path d="">` (Chrome, Edge, Safari support the `d` property), `@property`-driven attribute interpolation, or [Motion](https://motion.dev) for orchestrated sequences.
 
 ### A hand-built SVG with declarative animation
 
@@ -147,13 +147,13 @@ The breath comes from `@property --bake` interpolating a percentage; the score-m
 | **`@property` + animated CSS variables** | Smoothly interpolated colour, length, angle, percentage | Use this. Declarative, predictable. |
 | **CSS keyframes on `transform` / `opacity`** | Position, rotation, fade | Always. Hardware-accelerated, no layout thrash. |
 | **`stroke-dasharray` draw-on** | Hand-drawn line illustrations that build themselves | Yes. Cheap and effective. |
-| **SMIL `<animate>`** | Legacy SVG-only attribute animation | Acceptable in 2026 but deprioritised — CSS is composable, SMIL isn't. Use only if CSS can't express it. |
-| **JS via Motion / GSAP** | Multi-element orchestrated entrances, scroll-scrubbing, complex timelines | Use when CSS isn't enough — see Tier C below. |
+| **SMIL `<animate>`** | Legacy SVG-only attribute animation | Acceptable in 2026 but deprioritised - CSS is composable, SMIL isn't. Use only if CSS can't express it. |
+| **JS via Motion / GSAP** | Multi-element orchestrated entrances, scroll-scrubbing, complex timelines | Use when CSS isn't enough - see Tier C below. |
 
 ### Anti-patterns of hand-built SVG
 
 - **Shipping the raw Figma export.** Always run SVGOMG. Untouched exports carry hundreds of bytes of metadata, unused `<defs>`, doubled transforms.
-- **A 300-KB SVG.** Anything over 30 KB is suspicious. Most well-built illustrations sit at 4–15 KB. If yours is 100 KB+, you have hidden raster embeds or thousands of unnecessary path commands.
+- **A 300-KB SVG.** Anything over 30 KB is suspicious. Most well-built illustrations sit at 4-15 KB. If yours is 100 KB+, you have hidden raster embeds or thousands of unnecessary path commands.
 - **`viewBox` cruft.** A `viewBox="0 0 24 24"` for an icon, or `viewBox="0 0 1920 1080"` for a hero illustration. Match the box to the design's bounds, no padding, no extra space.
 - **Animation with linear easing on everything.** Add ease-out (or a cubic-bezier specified to two decimals); the difference is the difference between "moving" and "alive".
 - **Path morphing between shapes with mismatched anchor counts.** Browsers will interpolate, but the result jitters. Either match anchor counts, or use `clip-path` instead.
@@ -166,7 +166,7 @@ The 2026 declarative animation canon. Use the platform first; reach for JS only 
 
 ### CSS keyframes + `@property`
 
-`@property` (Baseline 2024, ~88 % support by 2026) lets you define typed custom properties — `<color>`, `<length>`, `<angle>`, `<number>`, `<percentage>` — that the browser knows how to interpolate smoothly. Without `@property`, animating a custom property steps from start to end with no in-between values.
+`@property` (Baseline 2024, ~88 % support by 2026) lets you define typed custom properties - `<color>`, `<length>`, `<angle>`, `<number>`, `<percentage>` - that the browser knows how to interpolate smoothly. Without `@property`, animating a custom property steps from start to end with no in-between values.
 
 ```css
 @property --hue {
@@ -190,7 +190,7 @@ That's a smoothly hue-rotating conic gradient. No JS, no library, GPU-composited
 
 ### Scroll-driven animations
 
-`animation-timeline: scroll()` and `view()` reached **Baseline October 2025** — production-ready in Chromium, Edge, Safari Tech Preview, Firefox behind a flag. The rule: progressive enhancement.
+`animation-timeline: scroll()` and `view()` reached **Baseline October 2025** - production-ready in Chromium, Edge, Safari Tech Preview, Firefox behind a flag. The rule: progressive enhancement.
 
 ```css
 @supports (animation-timeline: view()) {
@@ -207,7 +207,7 @@ That's a smoothly hue-rotating conic gradient. No JS, no library, GPU-composited
 }
 ```
 
-If the browser supports it, the element animates as it enters the viewport. If not, the element is just there — no JavaScript, no library, no IntersectionObserver. The CSS Scroll-Driven Animations community is the canonical reference: [scroll-driven-animations.style](https://scroll-driven-animations.style/).
+If the browser supports it, the element animates as it enters the viewport. If not, the element is just there - no JavaScript, no library, no IntersectionObserver. The CSS Scroll-Driven Animations community is the canonical reference: [scroll-driven-animations.style](https://scroll-driven-animations.style/).
 
 ### View Transitions API
 
@@ -226,11 +226,11 @@ function applyTheme(theme) {
 
 The browser handles the cross-fade. No animation libraries needed for state changes.
 
-### Motion / GSAP / friends — when each earns its bundle
+### Motion / GSAP / friends - when each earns its bundle
 
 | Library | When | Bundle | Verdict |
 | --- | --- | --- | --- |
-| **[Motion](https://motion.dev)** (`motion/react`, `motion`) | Orchestrated multi-element entrances in React (variants, `AnimatePresence`, viewport hooks). The default for React heroes in 2026. | 4 KB base + 2 KB React = 6 KB. Web Animations API–backed. | First reach for React. |
+| **[Motion](https://motion.dev)** (`motion/react`, `motion`) | Orchestrated multi-element entrances in React (variants, `AnimatePresence`, viewport hooks). The default for React heroes in 2026. | 4 KB base + 2 KB React = 6 KB. Web Animations API-backed. | First reach for React. |
 | **[GSAP](https://gsap.com)** (free since the Webflow partnership) | Ambitious timelines, scrub-on-scroll, SVG path-morphing across mismatched anchors. Hero sequences with 20+ elements, multi-step narratives. | ~50 KB core; 100 KB+ with plugins (ScrollTrigger, Draggable). | Worth it when timelines are core. Overkill for a fade-in. |
 | **AutoAnimate** | Trivial layout transitions in React (a list reflows, an element appears). | 2 KB. | Fine for what it does. |
 | **Anime.js v4** | Lightweight stagger, simple animations, vanilla JS. | ~15 KB. | Acceptable; less common than Motion in 2026. |
@@ -241,7 +241,7 @@ The browser handles the cross-fade. No animation libraries needed for state chan
 ```
 Single element, simple motion           → CSS keyframes / @property
 Multiple elements, orchestrated entrance → Motion (React) or GSAP (vanilla / complex)
-Scroll-progress-linked                   → animation-timeline (CSS) — or GSAP ScrollTrigger if complex
+Scroll-progress-linked                   → animation-timeline (CSS) - or GSAP ScrollTrigger if complex
 State change between two layouts         → View Transitions API
 A list reflows in React                  → AutoAnimate
 A complex hero narrative with scrubbing   → GSAP timeline + ScrollTrigger
@@ -251,9 +251,9 @@ Reaching for Motion for a single fade-in (4 KB for nothing) is the bundle-bloat 
 
 ### Anti-patterns of declarative animation
 
-- **Animating `width`, `height`, `top`, `left`, `margin`, or `padding`** (causes layout thrash). Animate `transform` and `opacity` only — they composite on the GPU.
+- **Animating `width`, `height`, `top`, `left`, `margin`, or `padding`** (causes layout thrash). Animate `transform` and `opacity` only - they composite on the GPU.
 - **Linear easing on UI** (no subtlety; reads as "demo from a tutorial").
-- **Bouncy elastic on hero entrances** (`cubic-bezier(0.34, 1.56, …)` and friends) — reserved for genuine physical interactions like drag-release.
+- **Bouncy elastic on hero entrances** (`cubic-bezier(0.34, 1.56, …)` and friends) - reserved for genuine physical interactions like drag-release.
 - **Importing Motion or GSAP for one fade-in.** 50 KB for what `transition: opacity 400ms var(--ease-out)` does in zero bytes.
 - **Scroll-fade-everything.** Every section fading in on scroll. The page never settles. Pick one orchestrated entrance on first load and let the rest *be there*.
 - **Reveal animations with no `prefers-reduced-motion` fallback.** Every transform / animation must be guarded.
@@ -262,7 +262,7 @@ Reaching for Motion for a single fade-in (4 KB for nothing) is the bundle-bloat 
 
 ## Tier D · Three.js / WebGL / shaders
 
-**When justified.** The 3D *is* the hero value — a rotating product the user can interact with, an interactive 3D playground, a generative art piece. Examples: Apple's product pages with interactive bottles / iPhones, Bruno Simon's portfolio, Vercel's WebGL hero galleries.
+**When justified.** The 3D *is* the hero value - a rotating product the user can interact with, an interactive 3D playground, a generative art piece. Examples: Apple's product pages with interactive bottles / iPhones, Bruno Simon's portfolio, Vercel's WebGL hero galleries.
 
 **When not.** A static spinning thing the user can't interact with. A bloom-overdosed shader background that "looks premium". A 5-MB model loaded eagerly on a marketing page.
 
@@ -273,9 +273,9 @@ Reaching for Motion for a single fade-in (4 KB for nothing) is the bundle-bloat 
 - 60 fps target on mid-range mobile
 
 **Stack.**
-- React Three Fiber (R3F) for React projects — ergonomic, ~30 KB on top of Three.js
-- Vanilla [Three.js](https://threejs.org) otherwise (~100–300 KB depending on features)
-- Models: glTF 2.0 with Draco compression (20–50 % size reduction)
+- React Three Fiber (R3F) for React projects - ergonomic, ~30 KB on top of Three.js
+- Vanilla [Three.js](https://threejs.org) otherwise (~100-300 KB depending on features)
+- Models: glTF 2.0 with Draco compression (20-50 % size reduction)
 - Textures: KTX2 / Basis (much smaller than PNG/JPEG)
 
 **Always include a non-WebGL fallback.** If the canvas fails to initialise (no WebGL2, GPU blacklisted, low-power mode), show a static poster image so the page still renders.
@@ -307,7 +307,7 @@ When characters or specific scenes are needed and hand-build is uneconomical (th
 - **Use reference images** for brand consistency. Nanobanana's character-consistency feature is the differentiator vs. Midjourney; feed it your existing brand assets so generations stay on-style.
 - **Stamp the model in the macrostructure comment** (`generated: nanobanana-2 · post-processed`). Future audits need to know provenance.
 - **Verify the SynthID watermark** is present (Google's invisible AI-provenance marker).
-- **Multi-frame animation isn't supported** by any of these models. Don't try to assemble keyframes into a Lottie loop — that's Tier F territory and almost always a worse outcome than a single still.
+- **Multi-frame animation isn't supported** by any of these models. Don't try to assemble keyframes into a Lottie loop - that's Tier F territory and almost always a worse outcome than a single still.
 
 ### Anti-patterns of generated stills
 
@@ -320,12 +320,12 @@ When characters or specific scenes are needed and hand-build is uneconomical (th
 
 ## Tier F · Library illustrations + Lottie (last resort)
 
-When budget and timeline force a shortcut. The catalogue is in [`assets.md`](assets.md) — Storyset, Humaaans, unDraw, IRA Design, LottieFiles. Even at this tier:
+When budget and timeline force a shortcut. The catalogue is in [`assets.md`](assets.md) - Storyset, Humaaans, unDraw, IRA Design, LottieFiles. Even at this tier:
 
 - **Customise.** Colour-swap to brand anchor hue. Crop or recompose. Don't ship the unmodified library look.
 - **Avoid the giveaway poses.** Every team has seen "guy on laptop with floating speech bubble" a hundred times. Anything that screams "stock illustration" loses.
 
-### Lottie specifically — last resort
+### Lottie specifically - last resort
 
 **Use Lottie only when:**
 - The motion is character-articulated (a five-frame mascot wave, a multi-joint walking cycle) and CSS / SVG can't reasonably express it
@@ -335,11 +335,11 @@ When budget and timeline force a shortcut. The catalogue is in [`assets.md`](ass
 - `prefers-reduced-motion` fallback is a static keyframe
 
 **Don't use Lottie for:**
-- Spinning logo loops — use CSS `@keyframes rotate`
-- Checkmark-draw confirmations — use SVG `stroke-dasharray`
-- Loading spinners — use CSS conic-gradient + rotate
-- Hover micro-interactions — use CSS transitions
-- Hero centerpieces that could be hand-built — use Tier A or B
+- Spinning logo loops - use CSS `@keyframes rotate`
+- Checkmark-draw confirmations - use SVG `stroke-dasharray`
+- Loading spinners - use CSS conic-gradient + rotate
+- Hover micro-interactions - use CSS transitions
+- Hero centerpieces that could be hand-built - use Tier A or B
 
 The Lottie Tell, version 2026: a generic LottieFiles pull where pure CSS would have built it stronger and lighter. The audit verb catches this.
 
@@ -349,8 +349,8 @@ The Lottie Tell, version 2026: a generic LottieFiles pull where pure CSS would h
 
 **Brief:** "Build a landing page for a small bakery in Lisbon."
 
-**Step 2 (macrostructure):** Long Document — the bakery is a story-led brand, not a SaaS product.
-**Step 3 (theme):** Atelier — warm-paper, prose-led, intimate.
+**Step 2 (macrostructure):** Long Document - the bakery is a story-led brand, not a SaaS product.
+**Step 3 (theme):** Atelier - warm-paper, prose-led, intimate.
 **Step 4 (enrichment):** E5 Custom Illustration Centerpiece. Tier B (hand-built SVG).
 
 **The output:**
@@ -366,13 +366,13 @@ A 60-line SVG of a single loaf, three paths (crust + crumb + scoring marks), pos
  */
 ```
 
-The next bakery brief Hallmark touches gets a *different* loaf — different curvature, different rise distance, different score pattern, possibly a different illustration entirely (a sourdough boule vs. a baguette vs. a flatbread). The variation knobs in [`hero-enrichment.md`](hero-enrichment.md) make sure of it.
+The next bakery brief Hallmark touches gets a *different* loaf - different curvature, different rise distance, different score pattern, possibly a different illustration entirely (a sourdough boule vs. a baguette vs. a flatbread). The variation knobs in [`hero-enrichment.md`](hero-enrichment.md) make sure of it.
 
 ---
 
 ## Recipe library
 
-The bakery loaf above is one worked example. This library catalogues four more — each a small, complete, copy-paste-able recipe at Tier A or Tier B. Use them when the brief calls for the named subject; otherwise treat them as *technique references* (the workflow diagram's `stroke-dashoffset` flow is reusable; the mascot's blink-loop is reusable; etc.).
+The bakery loaf above is one worked example. This library catalogues four more - each a small, complete, copy-paste-able recipe at Tier A or Tier B. Use them when the brief calls for the named subject; otherwise treat them as *technique references* (the workflow diagram's `stroke-dashoffset` flow is reusable; the mascot's blink-loop is reusable; etc.).
 
 Each recipe ships with: a one-line description, full code, a "use when / avoid when" note, a `prefers-reduced-motion` fallback block, and a real-world inspiration line.
 
@@ -436,16 +436,16 @@ Three labelled boxes connected by curved arrows. Slight asymmetric rotation (-1�
 }
 ```
 
-**Use when** the brief is "show the user how data flows" — feature page, docs landing, technical-narrative section. **Avoid when** the diagram has more than five nodes (use Mermaid or a real graph layout) or when relationships are non-linear (this recipe assumes left-to-right flow).
+**Use when** the brief is "show the user how data flows" - feature page, docs landing, technical-narrative section. **Avoid when** the diagram has more than five nodes (use Mermaid or a real graph layout) or when relationships are non-linear (this recipe assumes left-to-right flow).
 
 *Inspiration:* Lynn Fisher's `lynnandtonic.com` `<rect>`-rotation experiments; Rauno Freiberg's `stroke-dashoffset` flows on rauno.me.
 
 ### Recipe 2 · Minimal-line mascot
 
-A small SVG character — face only, ~120 × 120 px — that has personality without anthropomorphic uncanny-valley risk. Two ellipse eyes (with `@keyframes blink` 3s loop), a single quadratic-curve mouth, and two stem accents (hair / hat / horns / antennae). Pairs beside text.
+A small SVG character - face only, ~120 × 120 px - that has personality without anthropomorphic uncanny-valley risk. Two ellipse eyes (with `@keyframes blink` 3s loop), a single quadratic-curve mouth, and two stem accents (hair / hat / horns / antennae). Pairs beside text.
 
 ```html
-<figure class="mascot" aria-label="The Hallmark mascot — a face with two eyes and a small smile">
+<figure class="mascot" aria-label="The Hallmark mascot - a face with two eyes and a small smile">
   <svg viewBox="0 0 120 130" class="mascot__svg">
     <circle class="mascot__head" cx="60" cy="60" r="42" />
 
@@ -465,7 +465,7 @@ A small SVG character — face only, ~120 × 120 px — that has personality wit
 .mascot__svg { width: 100%; height: 100%; color: var(--color-ink); }
 .mascot__head { fill: color-mix(in oklch, var(--color-paper-2) 100%, var(--color-accent) 6%); stroke: var(--color-ink); stroke-width: 2; }
 .mascot__eye  { fill: var(--color-ink); animation: blink 5s ease-in-out infinite; }
-.mascot__eye--r { animation-delay: 80ms; }   /* one eye lags slightly — feels organic */
+.mascot__eye--r { animation-delay: 80ms; }   /* one eye lags slightly - feels organic */
 @keyframes blink {
   0%, 8%, 92%, 100% { ry: 6px; }
   12%, 14%          { ry: 0.8px; }
@@ -482,7 +482,7 @@ A small SVG character — face only, ~120 × 120 px — that has personality wit
 }
 ```
 
-**Use when** a small product / studio / indie brand needs personality without the uncanny-valley risk of a generated character. **Avoid when** the mascot needs to be expressive across many states (use Rive instead — the @property route is for simple loops, not articulated emotion).
+**Use when** a small product / studio / indie brand needs personality without the uncanny-valley risk of a generated character. **Avoid when** the mascot needs to be expressive across many states (use Rive instead - the @property route is for simple loops, not articulated emotion).
 
 *Inspiration:* Are.na's reductive-aesthetic site mark; the Mailchimp Freddie family (single-colour confidence); Diana Smith's CSS-art portrait constraints.
 
@@ -556,7 +556,7 @@ Browser → API → Database, drawn at ~16/9 with three labelled boxes and anima
 }
 ```
 
-**Use when** the brief is a developer-facing product that needs to show its position in a stack — observability tools, edge functions, ORMs, ingestion services. **Avoid when** the architecture has more than five tiers or non-linear topology (this recipe is for the "three-box flow" model only; for graph-like topologies, use a real diagram tool and embed an SVG export).
+**Use when** the brief is a developer-facing product that needs to show its position in a stack - observability tools, edge functions, ORMs, ingestion services. **Avoid when** the architecture has more than five tiers or non-linear topology (this recipe is for the "three-box flow" model only; for graph-like topologies, use a real diagram tool and embed an SVG export).
 
 *Inspiration:* Vercel's network/edge diagrams; Diana Smith's structural precision in placing geometry.
 
@@ -600,7 +600,7 @@ A small (~40 × 80 px) hand-drawn sprig with two asymmetric leaves at +25° and 
 h1.has-flourish { display: flex; align-items: baseline; gap: 0.4em; }
 ```
 
-**Use when** the brief is a bakery, restaurant, café, boutique, herbalist, florist, atelier — anything where a hand-drawn signal of *care* fits the brand. **Avoid when** the brand is technical, brutalist, or quietly austere (the sprig adds warmth where the page wants restraint).
+**Use when** the brief is a bakery, restaurant, café, boutique, herbalist, florist, atelier - anything where a hand-drawn signal of *care* fits the brand. **Avoid when** the brand is technical, brutalist, or quietly austere (the sprig adds warmth where the page wants restraint).
 
 *Inspiration:* hand-drawn botanical assets in old broadsheet papers; restaurant menus from Lisbon and Tokyo; Lynn Fisher's constraint-driven simplicity (this recipe could have been *A Single Div* with cleverer clip-paths, but SVG is more legible at small scale).
 
@@ -608,9 +608,9 @@ h1.has-flourish { display: flex; align-items: baseline; gap: 0.4em; }
 
 ### Cross-recipe techniques
 
-What all four recipes share — the four habits of hand-built CSS/SVG illustration in 2026:
+What all four recipes share - the four habits of hand-built CSS/SVG illustration in 2026:
 
-1. **`@property` for declarative interpolation.** Animating a typed custom property (`<length>`, `<number>`, `<angle>`, `<color>`) gives you GPU-composited animation with zero JS. The bakery loaf, the workflow flow line, the architectural data-flow, and the mascot's blink — all use it.
+1. **`@property` for declarative interpolation.** Animating a typed custom property (`<length>`, `<number>`, `<angle>`, `<color>`) gives you GPU-composited animation with zero JS. The bakery loaf, the workflow flow line, the architectural data-flow, and the mascot's blink - all use it.
 2. **Asymmetric `transform: rotate()` for hand-drawn feel.** The workflow boxes rotate at ±1°, the mascot's eyes have an 80 ms delay between them, the sprig's leaves rotate +25° / -30°. Symmetry reads as algorithmic; controlled asymmetry reads as drawn.
 3. **Opacity layering for pencil/secondary detail.** The workflow's reverse arrow is `var(--color-muted)`; the architectural sub-labels are 60% opacity; the sprig veins are 0.6 opacity. The hierarchy of opacity is the hierarchy of attention.
 4. **Mono labels grounding decorative work in function.** The architectural diagram's `arch__sub` text uses `var(--font-mono)` at 8 px. The workflow's "small predicate language" uses mono. Decorative work earns its place by being legible and accurate; mono signals that.

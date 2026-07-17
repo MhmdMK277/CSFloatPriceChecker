@@ -1,13 +1,13 @@
 """Steam inventory import: JSON dumps, manual paste, and public fetch.
 
 Since Steam's April 2024 trade-hold update, a CS2 inventory spans two
-contexts — 2 (tradable) and 16 (trade-protected for 10 days after a trade)
-— and Steam rate-limits server-side inventory fetches aggressively. We
+contexts - 2 (tradable) and 16 (trade-protected for 10 days after a trade)
+- and Steam rate-limits server-side inventory fetches aggressively. We
 therefore support three sources:
 
 - a live fetch of a public inventory by SteamID64 (works sometimes)
 - manually pasted inventory JSON, per context, copied from the user's own
-  browser session (reliable — the user is authenticated with Steam)
+  browser session (reliable - the user is authenticated with Steam)
 - an uploaded Steam inventory JSON dump
 """
 
@@ -35,7 +35,7 @@ _VANITY_URL_RE = re.compile(r"^(?:https?://)?steamcommunity\.com/id/([^/?#]+)(?:
 def parse_steam_input(value: str) -> tuple[str | None, str | None]:
     """Extract a SteamID64 from a raw id or any steamcommunity profile URL.
 
-    Returns ``(steamid64, error_message)`` — exactly one side is set.
+    Returns ``(steamid64, error_message)`` - exactly one side is set.
     Vanity URLs (/id/name) can't be resolved without a Steam Web API key,
     so they return a helpful error instead.
     """
@@ -54,7 +54,7 @@ def parse_steam_input(value: str) -> tuple[str | None, str | None]:
     if m:
         return None, (
             f"Custom URL detected ('{m.group(1)}'). Steam doesn't expose the SteamID64 "
-            "for custom URLs without an API key — look yours up at steamid.io and paste "
+            "for custom URLs without an API key - look yours up at steamid.io and paste "
             "the 17-digit SteamID64, or use Manual Load below."
         )
 
@@ -164,7 +164,7 @@ async def fetch_steam_inventory(
 
     Steam paginates with ``last_assetid``; we follow up to a sane cap.
     Raises NotFoundError for private/missing inventories. Note: Steam
-    rate-limits this endpoint heavily since April 2024 — callers should
+    rate-limits this endpoint heavily since April 2024 - callers should
     treat 429s as expected and offer the manual-paste path.
     """
     url = STEAM_INVENTORY_URL.format(steam_id=steam_id, context=context)
@@ -181,7 +181,7 @@ async def fetch_steam_inventory(
                 raise NotFoundError("That Steam inventory is private.")
             if resp.status_code == 429:
                 raise UpstreamError(
-                    "Steam is rate limiting inventory requests — use Manual Load below.",
+                    "Steam is rate limiting inventory requests - use Manual Load below.",
                     status=429,
                 )
             if resp.status_code != 200:
@@ -189,7 +189,7 @@ async def fetch_steam_inventory(
             data = resp.json()
             if not data or not data.get("assets"):
                 if not merged["assets"]:
-                    raise NotFoundError("No CS2 items found — is the inventory public?")
+                    raise NotFoundError("No CS2 items found - is the inventory public?")
                 break
             merged["assets"].extend(data.get("assets") or [])
             merged["descriptions"].extend(data.get("descriptions") or [])
@@ -204,7 +204,7 @@ async def fetch_full_inventory(steam_id: str, *, timeout: float = 20.0) -> dict[
     """Fetch tradable (context 2) plus, best-effort, trade-protected (16).
 
     The tradable context is required; the trade-protected fetch spends a
-    second rate-limited request, so failures there are swallowed — manual
+    second rate-limited request, so failures there are swallowed - manual
     load covers that case.
     """
     tradable = await fetch_steam_inventory(steam_id, context=CONTEXT_TRADABLE, timeout=timeout)

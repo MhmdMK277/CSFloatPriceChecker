@@ -1,6 +1,6 @@
 """Skinport public price feed.
 
-Skinport exposes `GET /v1/items` without authentication — every CS2 item
+Skinport exposes `GET /v1/items` without authentication - every CS2 item
 with its current lowest listing price and quantity. Their edge cache holds
 responses for 5 minutes and the endpoint REQUIRES Brotli
 (``Accept-Encoding: br``); requests without it get a 406. httpx handles
@@ -40,7 +40,7 @@ async def fetch_skinport_items(*, timeout: float = 60.0) -> list[dict[str, Any]]
 
     if resp.status_code == 406:
         raise UpstreamError(
-            "Skinport rejected the request (Brotli support missing — is the "
+            "Skinport rejected the request (Brotli support missing - is the "
             "'brotli' package installed?)", status=502,
         )
     if resp.status_code != 200:

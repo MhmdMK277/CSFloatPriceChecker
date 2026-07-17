@@ -73,7 +73,7 @@ jobs:
           ls -la
 
       # gh is preinstalled on runners; auto-generated notes are avoided on
-      # purpose — they diff against the previous tag across force-rewritten
+      # purpose - they diff against the previous tag across force-rewritten
       # history, which GitHub's API errored on.
       - name: Publish release
         env:
@@ -81,7 +81,7 @@ jobs:
         run: |
           TAG="${{ github.ref_name }}"
           cat > notes.md <<EOF
-          **CSFloat Tracker $TAG** — downloadable desktop app.
+          **CSFloat Tracker $TAG** - downloadable desktop app.
 
           Grab the build for your platform, run it, and your browser opens
           to the app. Windows is windowed with a tray icon; Linux/macOS are

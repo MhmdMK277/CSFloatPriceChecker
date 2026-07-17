@@ -1,6 +1,6 @@
 """Marketplace fee comparison.
 
-Static, sourced fee table — no marketplace has a free public fee API, and
+Static, sourced fee table - no marketplace has a free public fee API, and
 these change rarely. Skinport's commission is tiered by item price; the
 others are flat. Sources (checked 2026-07): each platform's own fee page,
 steamanalyst.com/guides/marketplaces, skinedge.net fee comparison.
@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
-# (threshold_cents_exclusive, fee_pct) — first bracket whose threshold
+# (threshold_cents_exclusive, fee_pct) - first bracket whose threshold
 # exceeds the price wins. Skinport: 12% under $30, 9% to $100, 6% above.
 SKINPORT_TIERS: list[tuple[int, float]] = [
     (3000, 12.0),
@@ -64,7 +64,7 @@ MARKETPLACES: list[dict[str, Any]] = [
         "name": "Steam Market",
         "seller_fee_pct": 15.0,
         "payout": "Steam wallet only",
-        "note": "Proceeds can never leave Steam — fine for buying more skins, useless for cashing out.",
+        "note": "Proceeds can never leave Steam - fine for buying more skins, useless for cashing out.",
         "live_prices": False,
     },
 ]

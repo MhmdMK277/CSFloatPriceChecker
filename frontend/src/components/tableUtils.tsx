@@ -146,7 +146,7 @@ export function Pagination<T>({ state, label = "items" }: { state: PageState<T>;
   return (
     <div className="row spread pagination" role="navigation" aria-label="Pagination">
       <span className="xsmall muted num">
-        Showing {state.from}–{state.to} of {state.total} {label}
+        Showing {state.from}-{state.to} of {state.total} {label}
       </span>
       <div className="row" style={{ gap: 4 }}>
         <button className="btn sm ghost" disabled={state.page === 1} onClick={() => state.setPage(1)} aria-label="First page">

@@ -180,7 +180,7 @@ class Worker:
                 "message": message,
             }
             await self.ctx.ws.broadcast("alert", payload)
-            await self._notify_discord(f"🔔 **Alert** — {message}\n{listing.url}")
+            await self._notify_discord(f"🔔 **Alert** - {message}\n{listing.url}")
 
     @staticmethod
     def _matches(rule: dict, listing) -> bool:
@@ -258,7 +258,7 @@ class Worker:
                 await self.ctx.ws.broadcast("deal", payload)
                 extra = f"\n{reason}" if reason else ""
                 await self._notify_discord(
-                    f"💰 **Deal** — {listing.market_hash_name} at "
+                    f"💰 **Deal** - {listing.market_hash_name} at "
                     f"${listing.price_usd:.2f} ({pct:.1f}% below reference){extra}\n{listing.url}"
                 )
         if found:

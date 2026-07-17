@@ -1,4 +1,4 @@
-"""Terminal interface for power users — same core as the web app.
+"""Terminal interface for power users - same core as the web app.
 
 Examples::
 
@@ -25,7 +25,7 @@ from .core.itemdb import ItemDatabase
 
 app = typer.Typer(
     name="csfloat-tracker",
-    help="CS2 market intelligence for CSFloat — web app, tracker and CLI.",
+    help="CS2 market intelligence for CSFloat - web app, tracker and CLI.",
     no_args_is_help=True,
     add_completion=False,
 )
@@ -87,7 +87,7 @@ def search(
     table.add_column("Type")
     table.add_column("Ref. price", justify="right")
     for v in results:
-        ref = f"${v.reference_price_cents / 100:,.2f}" if v.reference_price_cents else "—"
+        ref = f"${v.reference_price_cents / 100:,.2f}" if v.reference_price_cents else "-"
         table.add_row(v.market_hash_name, v.item_type, ref)
     console.print(table)
 
@@ -131,9 +131,9 @@ def price(
     for listing in page.listings:
         table.add_row(
             f"${listing.price_usd:,.2f}",
-            f"{listing.float_value:.6f}" if listing.float_value is not None else "—",
+            f"{listing.float_value:.6f}" if listing.float_value is not None else "-",
             listing.type,
-            listing.seller.username if listing.seller and listing.seller.username else "—",
+            listing.seller.username if listing.seller and listing.seller.username else "-",
             listing.url,
         )
     console.print(table)
@@ -171,7 +171,7 @@ def status() -> None:
             f"Item DB: {stats['market_names']:,} names · generated {stats['generated_at']} · {staleness}"
         )
     else:
-        console.print("Item DB: [red]missing[/] — run refresh-db")
+        console.print("Item DB: [red]missing[/] - run refresh-db")
 
 
 @key_app.command("set")

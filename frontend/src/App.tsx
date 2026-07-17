@@ -65,7 +65,7 @@ function Shell() {
       push({
         kind: "deal",
         title: `Deal · ${pct(event.data.discount_pct, false)} below reference`,
-        body: `${event.data.market_hash_name} — ${usd(event.data.price_cents)}`,
+        body: `${event.data.market_hash_name} - ${usd(event.data.price_cents)}`,
         href: event.data.url,
       });
     }

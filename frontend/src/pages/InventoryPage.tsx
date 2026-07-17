@@ -22,7 +22,7 @@ const STEAM_ID_LS_KEY = "csfloat_steam_id";
  * React Router unmounts the page on navigation; rebuilding purely from the
  * backend makes "come back to a blank page" possible whenever that round
  * trip hiccups. This cache guarantees the loaded inventory reappears
- * instantly and unconditionally within the app session — the backend
+ * instantly and unconditionally within the app session - the backend
  * snapshot only needs to cover restarts. */
 interface InventoryPageCache {
   input: string;
@@ -59,7 +59,7 @@ function validatePaste(raw: string): { data?: unknown; count?: number; error?: s
     }
     return { error: "Valid JSON, but not a Steam inventory response (no \"assets\" array)." };
   } catch {
-    return { error: "Not valid JSON — copy the entire response body from the browser tab." };
+    return { error: "Not valid JSON - copy the entire response body from the browser tab." };
   }
 }
 
@@ -107,7 +107,7 @@ function PasteBox({
         className="num paste-box"
         rows={5}
         spellCheck={false}
-        placeholder='Paste here — starts with {"assets":[{"appid":730,"contextid":…'
+        placeholder='Paste here - starts with {"assets":[{"appid":730,"contextid":…'
         value={value}
         onChange={(e) => onChange(e.target.value)}
         aria-invalid={parsed?.error ? true : undefined}
@@ -142,7 +142,7 @@ export function InventoryPage() {
   // restoring state while we ask the backend for the last snapshot.
   const [restoring, setRestoring] = useState(pageCache === null);
 
-  // Keep the cache current — runs after every render, plain assignment.
+  // Keep the cache current - runs after every render, plain assignment.
   useEffect(() => {
     pageCache = {
       input, steamId, manualOpen, tradablePaste, protectedPaste,
@@ -151,7 +151,7 @@ export function InventoryPage() {
   });
 
   // Cold start (no in-memory state): restore the last session from the
-  // backend — remembered id, preferred method, latest snapshot.
+  // backend - remembered id, preferred method, latest snapshot.
   useEffect(() => {
     if (pageCache?.result) {
       // Warm revisit: state already on screen; just refresh history quietly.
@@ -313,7 +313,7 @@ export function InventoryPage() {
         <div>
           <h1>Inventory value</h1>
           <p>
-            Priced against CSFloat reference prices — instant, no API budget spent. Your
+            Priced against CSFloat reference prices - instant, no API budget spent. Your
             inventory must be public.
           </p>
         </div>
@@ -371,7 +371,7 @@ export function InventoryPage() {
           <p className="small muted" style={{ maxWidth: "72ch" }}>
             Since April 2024, Steam strictly limits how often inventories can be fetched by
             apps. Opening the links below in your own browser works reliably because you’re
-            authenticated with Steam directly — select all (<span className="num">Ctrl+A</span>),
+            authenticated with Steam directly - select all (<span className="num">Ctrl+A</span>),
             copy (<span className="num">Ctrl+C</span>), and paste the response here.
           </p>
           <div className="row" style={{ alignItems: "stretch" }}>
@@ -393,7 +393,7 @@ export function InventoryPage() {
           </div>
           {!steamId && (
             <p className="xsmall muted">
-              Tip: enter your SteamID64 or profile URL above and hit “Fetch inventory” once —
+              Tip: enter your SteamID64 or profile URL above and hit “Fetch inventory” once -
               even if the fetch fails, it fills in your personal links here.
             </p>
           )}
@@ -421,7 +421,7 @@ export function InventoryPage() {
           <div className="row" style={{ gap: 8 }}>
             {resultTs ? (
               <span className="badge" title={resultTs}>
-                saved snapshot · updated {timeAgo(resultTs)} — refresh above for current values
+                saved snapshot · updated {timeAgo(resultTs)} - refresh above for current values
               </span>
             ) : (
               <span className="badge up">freshly loaded</span>
@@ -542,7 +542,7 @@ export function InventoryPage() {
                       <td className="right num">{snap.item_count}</td>
                       <td className="right">
                         {diff === null || diff === 0 ? (
-                          <span className="delta flat">—</span>
+                          <span className="delta flat">-</span>
                         ) : (
                           <span className={`delta ${diff > 0 ? "up" : "down"}`}>
                             {diff > 0 ? "▲" : "▼"} {usd(Math.abs(diff))}

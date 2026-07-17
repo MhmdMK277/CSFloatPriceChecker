@@ -10,7 +10,7 @@ export function Delta({
   previous: number | null;
 }) {
   if (current === null || previous === null || previous === 0) {
-    return <span className="delta flat">—</span>;
+    return <span className="delta flat">-</span>;
   }
   const diff = current - previous;
   const cls = diff > 0 ? "up" : diff < 0 ? "down" : "flat";

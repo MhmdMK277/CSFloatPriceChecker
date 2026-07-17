@@ -1,7 +1,7 @@
 # Contributing
 
 Thanks for helping make CSFloat Tracker better. The codebase is small and
-deliberate — you can read all of `src/csfloat_tracker/core` in one sitting.
+deliberate - you can read all of `src/csfloat_tracker/core` in one sitting.
 
 ## Setup
 
@@ -12,21 +12,21 @@ make test           # pytest with coverage
 make lint           # ruff + tsc
 ```
 
-No `make` (plain Windows)? Each target is 1–3 commands — open the `Makefile`
+No `make` (plain Windows)? Each target is 1-3 commands - open the `Makefile`
 and run them directly.
 
 ## Ground rules
 
 - **Tests accompany code.** New core logic gets unit tests; new endpoints get
-  API tests (`tests/test_api.py` shows the pattern — in-process ASGI client,
+  API tests (`tests/test_api.py` shows the pattern - in-process ASGI client,
   CSFloat mocked with respx). CI enforces ≥ 70 % coverage.
 - **Conventional commits.** `feat:`, `fix:`, `docs:`, `refactor:`, `test:`,
-  `chore:` — scoped like `feat(server): …` when useful.
+  `chore:` - scoped like `feat(server): …` when useful.
 - **Prices are integer cents** everywhere except the UI render layer.
 - **Errors are `CSFloatError` subclasses** with user-presentable messages.
   Never let a raw exception reach a route response.
 - **Respect the rate limiter.** Anything that talks to CSFloat goes through
-  `CSFloatClient` — no bare httpx calls to csfloat.com.
+  `CSFloatClient` - no bare httpx calls to csfloat.com.
 - **Frontend styling uses the tokens.** New CSS references
   `var(--color-*)` / `var(--space-*)` / `var(--font-*)` from `tokens.css`;
   no inline hex colors, no new font families.

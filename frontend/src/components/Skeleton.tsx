@@ -1,4 +1,4 @@
-/** Shimmer placeholders — used instead of spinners for all loading states. */
+/** Shimmer placeholders - used instead of spinners for all loading states. */
 
 export function SkeletonRows({ rows = 6, height = 38 }: { rows?: number; height?: number }) {
   return (

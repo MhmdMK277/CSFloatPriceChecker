@@ -2,7 +2,7 @@
 
 Three import paths, in order of reliability:
 - manual paste of inventory JSON per context (works around Steam's
-  aggressive rate limiting — the user copies from their own browser)
+  aggressive rate limiting - the user copies from their own browser)
 - automatic fetch by SteamID64 / profile URL (works sometimes)
 - raw JSON dump upload
 
@@ -131,7 +131,7 @@ async def fetch_inventory(
     try:
         merged = await fetch_full_inventory(steam_id)
     except CSFloatError as exc:
-        # Remember the id anyway — the UI pre-populates Manual Load with it.
+        # Remember the id anyway - the UI pre-populates Manual Load with it.
         await ctx.storage.set_setting("last_steam_id", steam_id)
         return {"steam_id": steam_id, "error": exc.message, "inventory": None}
     result = _value_inventory(merged, ctx)
@@ -148,7 +148,7 @@ async def manual_load(body: ManualLoad, ctx: AppContext = Depends(get_ctx)):
     merged = merge_inventory_payloads(payloads)
     if not merged["assets"]:
         raise CSFloatError(
-            "That JSON has no items — make sure you copied the full response body.",
+            "That JSON has no items - make sure you copied the full response body.",
             status=400,
         )
     result = _value_inventory(merged, ctx)
