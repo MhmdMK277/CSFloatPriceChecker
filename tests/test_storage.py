@@ -104,6 +104,49 @@ async def test_deals_dedupe(store):
     assert len(await store.list_deals()) == 1
 
 
+async def test_inventory_snapshots(store):
+    for value in (47100, 50200):
+        await store.save_inventory_snapshot(
+            "76561198000000000",
+            total_value_cents=value, item_count=310, priced_count=287,
+            items=[{"market_hash_name": "AK-47 | Redline (Field-Tested)", "quantity": 2}],
+            context_counts={"tradable": 287, "trade_protected": 23, "other": 0},
+            value_by_type={"skin": value},
+        )
+    latest = await store.get_latest_inventory_snapshot("76561198000000000")
+    assert latest["total_value_cents"] == 50200
+    assert latest["items"][0]["quantity"] == 2
+    assert latest["context_counts"]["trade_protected"] == 23
+
+    history = await store.list_inventory_snapshots("76561198000000000")
+    assert [h["total_value_cents"] for h in history] == [47100, 50200]  # oldest first
+    assert "items_json" not in history[0] and "items" not in history[0]
+
+    assert await store.get_latest_inventory_snapshot("other") is None
+    assert await store.list_inventory_snapshots("other") == []
+
+
+async def test_inventory_snapshot_pruning(store):
+    for i in range(105):
+        await store.save_inventory_snapshot(
+            "s1", total_value_cents=i, item_count=1, priced_count=1,
+            items=[], context_counts={}, value_by_type={},
+        )
+    history = await store.list_inventory_snapshots("s1", limit=100)
+    assert len(history) == 100  # capped
+    assert history[-1]["total_value_cents"] == 104  # newest kept
+
+
+async def test_deal_reason_column(store):
+    assert await store.record_deal(
+        listing_id="r1", market_hash_name="X", price_cents=100,
+        reference_price_cents=200, discount_pct=50.0, float_value=0.1,
+        listing_url="u", reason="top 1% float for FT",
+    )
+    deals = await store.list_deals()
+    assert deals[0]["reason"] == "top 1% float for FT"
+
+
 async def test_portfolio(store):
     await store.add_portfolio_entry("AK-47 | Case Hardened (Field-Tested)", 5000, quantity=2)
     rows = await store.list_portfolio()

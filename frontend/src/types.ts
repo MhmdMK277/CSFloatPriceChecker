@@ -165,6 +165,7 @@ export interface Deal {
   discount_pct: number;
   float_value: number | null;
   listing_url: string;
+  reason: string | null;
 }
 
 export interface DealConfig {
@@ -204,6 +205,34 @@ export interface SteamFetchResponse {
   steam_id: string | null;
   error: string | null;
   inventory: InventoryResponse | null;
+}
+
+export interface InventorySnapshot extends InventoryResponse {
+  ts: string;
+  steam_id: string;
+}
+
+export interface InventorySession {
+  steam_id: string | null;
+  method: "auto" | "manual" | "upload";
+  latest: InventorySnapshot | null;
+}
+
+export interface InventoryHistoryEntry {
+  ts: string;
+  total_value_cents: number;
+  item_count: number;
+  priced_count: number;
+}
+
+export interface MarketFeeRow {
+  key: string;
+  name: string;
+  seller_fee_pct: number;
+  payout: string;
+  note: string;
+  fee_cents?: number;
+  net_cents?: number;
 }
 
 export interface PortfolioEntry {

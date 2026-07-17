@@ -95,9 +95,23 @@ CREATE TABLE IF NOT EXISTS deals (
   reference_price_cents INTEGER,
   discount_pct REAL,
   float_value REAL,
-  listing_url TEXT
+  listing_url TEXT,
+  reason TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_deals_ts ON deals(ts);
+
+CREATE TABLE IF NOT EXISTS inventory_snapshots (
+  id INTEGER PRIMARY KEY,
+  steam_id TEXT NOT NULL,
+  ts TEXT NOT NULL,
+  total_value_cents INTEGER NOT NULL,
+  item_count INTEGER NOT NULL,
+  priced_count INTEGER NOT NULL,
+  items_json TEXT NOT NULL,
+  context_counts_json TEXT NOT NULL,
+  value_by_type_json TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_inv_steam_ts ON inventory_snapshots(steam_id, ts);
 
 CREATE TABLE IF NOT EXISTS portfolio (
   id INTEGER PRIMARY KEY,
@@ -128,7 +142,15 @@ class Storage:
     async def open(self) -> None:
         self._db = await aiosqlite.connect(self.path)
         await self._db.executescript(SCHEMA)
+        await self._migrate()
         await self._db.commit()
+
+    async def _migrate(self) -> None:
+        """Additive column migrations for databases created by older versions."""
+        import contextlib
+
+        with contextlib.suppress(Exception):  # "duplicate column name" on fresh DBs
+            await self.db.execute("ALTER TABLE deals ADD COLUMN reason TEXT")
 
     async def close(self) -> None:
         if self._db:
@@ -386,16 +408,16 @@ class Storage:
     async def record_deal(
         self, *, listing_id: str, market_hash_name: str, price_cents: int,
         reference_price_cents: int, discount_pct: float, float_value: float | None,
-        listing_url: str,
+        listing_url: str, reason: str | None = None,
     ) -> bool:
         """Insert a deal; returns False when the listing was already recorded."""
         cur = await self.db.execute(
             """INSERT OR IGNORE INTO deals
                (listing_id,market_hash_name,ts,price_cents,reference_price_cents,
-                discount_pct,float_value,listing_url)
-               VALUES(?,?,?,?,?,?,?,?)""",
+                discount_pct,float_value,listing_url,reason)
+               VALUES(?,?,?,?,?,?,?,?,?)""",
             (listing_id, market_hash_name, _now(), price_cents, reference_price_cents,
-             discount_pct, float_value, listing_url),
+             discount_pct, float_value, listing_url, reason),
         )
         await self.db.commit()
         return cur.rowcount > 0
@@ -409,6 +431,55 @@ class Storage:
             (keep,),
         )
         await self.db.commit()
+
+    # ------------------------------------------------------------------
+    # Inventory snapshots
+    # ------------------------------------------------------------------
+
+    async def save_inventory_snapshot(
+        self, steam_id: str, *, total_value_cents: int, item_count: int,
+        priced_count: int, items: list[dict], context_counts: dict, value_by_type: dict,
+    ) -> None:
+        await self.db.execute(
+            """INSERT INTO inventory_snapshots
+               (steam_id,ts,total_value_cents,item_count,priced_count,
+                items_json,context_counts_json,value_by_type_json)
+               VALUES(?,?,?,?,?,?,?,?)""",
+            (steam_id, _now(), total_value_cents, item_count, priced_count,
+             json.dumps(items), json.dumps(context_counts), json.dumps(value_by_type)),
+        )
+        # Keep history bounded: raw item rows are big, and daily use adds up.
+        await self.db.execute(
+            """DELETE FROM inventory_snapshots
+               WHERE steam_id=? AND id NOT IN (
+                 SELECT id FROM inventory_snapshots WHERE steam_id=?
+                 ORDER BY ts DESC LIMIT 100)""",
+            (steam_id, steam_id),
+        )
+        await self.db.commit()
+
+    async def get_latest_inventory_snapshot(self, steam_id: str) -> dict[str, Any] | None:
+        row = await self._fetchone(
+            "SELECT * FROM inventory_snapshots WHERE steam_id=? ORDER BY ts DESC LIMIT 1",
+            (steam_id,),
+        )
+        if not row:
+            return None
+        row["items"] = json.loads(row.pop("items_json"))
+        row["context_counts"] = json.loads(row.pop("context_counts_json"))
+        row["value_by_type"] = json.loads(row.pop("value_by_type_json"))
+        return row
+
+    async def list_inventory_snapshots(
+        self, steam_id: str, limit: int = 20
+    ) -> list[dict[str, Any]]:
+        """Summaries only (no item rows) for the history view, oldest first."""
+        rows = await self._fetchall(
+            """SELECT id,steam_id,ts,total_value_cents,item_count,priced_count
+               FROM inventory_snapshots WHERE steam_id=? ORDER BY ts DESC LIMIT ?""",
+            (steam_id, limit),
+        )
+        return list(reversed(rows))
 
     # ------------------------------------------------------------------
     # Portfolio

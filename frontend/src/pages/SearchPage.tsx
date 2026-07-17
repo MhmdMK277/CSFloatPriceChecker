@@ -1,7 +1,7 @@
 /** Market search: filters + live listings from CSFloat. */
 
-import { useCallback, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { api, ApiError } from "../api";
 import { ListingsTable } from "../components/ListingsTable";
 import { SearchBox } from "../components/SearchBox";
@@ -52,6 +52,21 @@ export function SearchPage() {
   const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  // First-run guidance: shown until a key exists or the user dismisses it.
+  useEffect(() => {
+    if (localStorage.getItem("onboarding_dismissed")) return;
+    api
+      .status()
+      .then((s) => setShowOnboarding(!s.api_key_set))
+      .catch(() => {});
+  }, []);
+
+  const dismissOnboarding = () => {
+    localStorage.setItem("onboarding_dismissed", "1");
+    setShowOnboarding(false);
+  };
 
   const set = (patch: Partial<Filters>) => setFilters((f) => ({ ...f, ...patch }));
 
@@ -102,6 +117,34 @@ export function SearchPage() {
           <p>Live CSFloat listings — pick an item, tune the filters, hit search.</p>
         </div>
       </div>
+
+      {showOnboarding && (
+        <div className="panel stack" style={{ borderColor: "var(--color-accent)" }}>
+          <div className="row spread">
+            <h2>New here? Two minutes to full power</h2>
+            <button className="btn ghost sm" onClick={dismissOnboarding} aria-label="Dismiss">
+              Dismiss ✕
+            </button>
+          </div>
+          <ol className="small" style={{ margin: 0, paddingLeft: "1.3em", lineHeight: 1.9 }}>
+            <li>
+              <strong>Works right now, no account:</strong> search the 35,000-item catalog above,
+              and value your whole Steam inventory on the{" "}
+              <Link className="link-accent" to="/inventory">Inventory</Link> page.
+            </li>
+            <li>
+              <strong>For live listings, price tracking and the deal finder</strong>, grab a free
+              CSFloat API key (Steam sign-in → Developers tab → new key) and paste it in{" "}
+              <Link className="link-accent" to="/settings">Settings</Link>. It stays on your machine.
+            </li>
+            <li>
+              New to floats, patterns or marketplace fees? The{" "}
+              <Link className="link-accent" to="/guide">Guide</Link> explains the whole game in
+              five minutes.
+            </li>
+          </ol>
+        </div>
+      )}
 
       <div className="panel stack">
         <SearchBox

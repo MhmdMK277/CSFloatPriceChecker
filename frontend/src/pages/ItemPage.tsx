@@ -9,7 +9,7 @@ import { PriceChart } from "../components/PriceChart";
 import { SkeletonRows, SkeletonTiles } from "../components/Skeleton";
 import { useToasts } from "../components/Toasts";
 import { floatFull, intervalLabel, usd } from "../format";
-import type { HistoryResponse, ItemVariant, Listing } from "../types";
+import type { HistoryResponse, ItemVariant, Listing, MarketFeeRow } from "../types";
 
 const INTERVALS = [60, 300, 900, 3600, 86400];
 
@@ -22,6 +22,7 @@ export function ItemPage() {
   const [variant, setVariant] = useState<ItemVariant | null>(null);
   const [history, setHistory] = useState<HistoryResponse | null>(null);
   const [listings, setListings] = useState<Listing[] | null>(null);
+  const [fees, setFees] = useState<MarketFeeRow[] | null>(null);
   const [tracking, setTracking] = useState<{ id: number; interval: number } | null>(null);
   const [trackInterval, setTrackInterval] = useState(900);
   const [busy, setBusy] = useState(false);
@@ -30,7 +31,16 @@ export function ItemPage() {
     setVariant(null);
     setHistory(null);
     setListings(null);
-    api.itemDetail(itemName).then(setVariant).catch(() => setVariant(null));
+    setFees(null);
+    api
+      .itemDetail(itemName)
+      .then((v) => {
+        setVariant(v);
+        if (v.reference_price_cents) {
+          api.marketFees(v.reference_price_cents).then((f) => setFees(f.marketplaces)).catch(() => {});
+        }
+      })
+      .catch(() => setVariant(null));
     api.history(itemName).then(setHistory).catch(() => {});
     api
       .tracked()
@@ -190,6 +200,43 @@ export function ItemPage() {
           <h3>No price history yet</h3>
           Hit “Track price” and the background worker will record snapshots on your chosen
           interval — the chart appears after two data points.
+        </div>
+      )}
+
+      {fees && variant?.reference_price_cents && (
+        <div className="panel stack" aria-label="Where to sell">
+          <div className="row spread">
+            <h2>If you sold at the reference price ({usd(variant.reference_price_cents)})</h2>
+            <span className="xsmall muted">
+              Standard seller fees — details in the <a className="link-accent" href="/guide">Guide</a>
+            </span>
+          </div>
+          <div className="table-wrap">
+            <table className="data">
+              <thead>
+                <tr>
+                  <th>Marketplace</th>
+                  <th className="right">Fee</th>
+                  <th className="right">You receive</th>
+                  <th>Payout</th>
+                  <th>Worth knowing</th>
+                </tr>
+              </thead>
+              <tbody>
+                {fees.map((row, i) => (
+                  <tr key={row.key}>
+                    <td style={{ fontWeight: i === 0 ? 600 : 400 }}>{row.name}</td>
+                    <td className="right num">{row.seller_fee_pct}%</td>
+                    <td className="right num" style={{ fontWeight: 600 }}>
+                      {usd(row.net_cents ?? null)}
+                    </td>
+                    <td className="small muted">{row.payout}</td>
+                    <td className="xsmall muted" style={{ maxWidth: 340 }}>{row.note}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

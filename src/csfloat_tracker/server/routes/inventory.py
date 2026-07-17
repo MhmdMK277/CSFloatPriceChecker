@@ -35,6 +35,7 @@ STEAM_ICON_PREFIX = "https://community.akamai.steamstatic.com/economy/image/"
 
 class InventoryUpload(BaseModel):
     data: dict  # raw Steam inventory JSON (assets + descriptions)
+    steam_id: str | None = None  # attribution for snapshot history, if known
 
 
 class ManualLoad(BaseModel):
@@ -42,6 +43,25 @@ class ManualLoad(BaseModel):
 
     tradable: dict | None = None
     trade_protected: dict | None = None
+    steam_id: str | None = None
+
+
+async def _persist_result(
+    ctx: AppContext, steam_id: str | None, result: dict, *, method: str
+) -> None:
+    """Remember the session and record a snapshot for history."""
+    if steam_id:
+        await ctx.storage.set_setting("last_steam_id", steam_id)
+        await ctx.storage.save_inventory_snapshot(
+            steam_id,
+            total_value_cents=result["total_value_cents"],
+            item_count=result["item_count"],
+            priced_count=result["priced_count"],
+            items=result["items"],
+            context_counts=result["context_counts"],
+            value_by_type=result["value_by_type"],
+        )
+    await ctx.storage.set_setting("inventory_method", method)
 
 
 def _value_inventory(merged: dict[str, Any], ctx: AppContext) -> dict:
@@ -104,8 +124,12 @@ async def fetch_inventory(
     try:
         merged = await fetch_full_inventory(steam_id)
     except CSFloatError as exc:
+        # Remember the id anyway — the UI pre-populates Manual Load with it.
+        await ctx.storage.set_setting("last_steam_id", steam_id)
         return {"steam_id": steam_id, "error": exc.message, "inventory": None}
-    return {"steam_id": steam_id, "error": None, "inventory": _value_inventory(merged, ctx)}
+    result = _value_inventory(merged, ctx)
+    await _persist_result(ctx, steam_id, result, method="auto")
+    return {"steam_id": steam_id, "error": None, "inventory": result}
 
 
 @router.post("/inventory/manual")
@@ -120,11 +144,49 @@ async def manual_load(body: ManualLoad, ctx: AppContext = Depends(get_ctx)):
             "That JSON has no items — make sure you copied the full response body.",
             status=400,
         )
-    return _value_inventory(merged, ctx)
+    result = _value_inventory(merged, ctx)
+    await _persist_result(ctx, body.steam_id, result, method="manual")
+    return result
 
 
 @router.post("/inventory/upload")
 async def upload_inventory(body: InventoryUpload, ctx: AppContext = Depends(get_ctx)):
     """Value an inventory from an uploaded Steam JSON dump."""
     merged = merge_inventory_payloads([body.data])
-    return _value_inventory(merged, ctx)
+    result = _value_inventory(merged, ctx)
+    await _persist_result(ctx, body.steam_id, result, method="upload")
+    return result
+
+
+@router.get("/inventory/session")
+async def inventory_session(ctx: AppContext = Depends(get_ctx)):
+    """Everything the inventory page needs on load: remembered id, preferred
+    method, and the freshest snapshot for instant display."""
+    steam_id = await ctx.storage.get_setting("last_steam_id")
+    method = await ctx.storage.get_setting("inventory_method", "auto")
+    latest = None
+    if steam_id:
+        latest = await ctx.storage.get_latest_inventory_snapshot(steam_id)
+        if latest:
+            # Fill the fields the live-valuation response carries so the UI
+            # can render a stored snapshot with the exact same component.
+            latest["unpriced_count"] = len(latest["items"]) - latest["priced_count"]
+            latest["truncated"] = False
+            latest["pricing_source"] = "csfloat_reference"
+    return {"steam_id": steam_id, "method": method, "latest": latest}
+
+
+@router.get("/inventory/history")
+async def inventory_history(
+    steam_id: str | None = Query(None),
+    limit: int = Query(30, ge=1, le=100),
+    ctx: AppContext = Depends(get_ctx),
+):
+    """Snapshot summaries (oldest first) for the value-over-time view."""
+    steam_id = steam_id or await ctx.storage.get_setting("last_steam_id")
+    if not steam_id:
+        return {"steam_id": None, "snapshots": []}
+    return {
+        "steam_id": steam_id,
+        "snapshots": await ctx.storage.list_inventory_snapshots(steam_id, limit),
+    }

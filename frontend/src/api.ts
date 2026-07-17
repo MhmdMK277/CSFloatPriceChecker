@@ -7,9 +7,12 @@ import type {
   Deal,
   DealConfig,
   HistoryResponse,
+  InventoryHistoryEntry,
   InventoryResponse,
+  InventorySession,
   ItemVariant,
   ListingsResponse,
+  MarketFeeRow,
   PortfolioResponse,
   SteamFetchResponse,
   TrackedItem,
@@ -112,18 +115,33 @@ export const api = {
   setDealConfig: (config: DealConfig) =>
     request<DealConfig>("/api/deals/config", { method: "PUT", body: JSON.stringify(config) }),
 
-  inventoryUpload: (data: unknown) =>
+  inventoryUpload: (data: unknown, steamId?: string | null) =>
     request<InventoryResponse>("/api/inventory/upload", {
       method: "POST",
-      body: JSON.stringify({ data }),
+      body: JSON.stringify({ data, steam_id: steamId ?? null }),
     }),
   inventorySteam: (input: string) =>
     request<SteamFetchResponse>(`/api/inventory/steam${qs({ q: input })}`),
-  inventoryManual: (tradable: unknown | null, tradeProtected: unknown | null) =>
+  inventoryManual: (
+    tradable: unknown | null,
+    tradeProtected: unknown | null,
+    steamId?: string | null,
+  ) =>
     request<InventoryResponse>("/api/inventory/manual", {
       method: "POST",
-      body: JSON.stringify({ tradable, trade_protected: tradeProtected }),
+      body: JSON.stringify({
+        tradable,
+        trade_protected: tradeProtected,
+        steam_id: steamId ?? null,
+      }),
     }),
+  inventorySession: () => request<InventorySession>("/api/inventory/session"),
+  inventoryHistory: (steamId?: string | null) =>
+    request<{ snapshots: InventoryHistoryEntry[] }>(
+      `/api/inventory/history${qs({ steam_id: steamId })}`,
+    ),
+  marketFees: (priceCents?: number | null) =>
+    request<{ marketplaces: MarketFeeRow[] }>(`/api/markets/fees${qs({ price_cents: priceCents })}`),
 
   portfolio: () => request<PortfolioResponse>("/api/portfolio"),
   addPortfolio: (entry: {

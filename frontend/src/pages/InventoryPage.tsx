@@ -6,12 +6,14 @@
  * JSON dump upload.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api, ApiError } from "../api";
 import { SkeletonRows, SkeletonTiles } from "../components/Skeleton";
 import { useToasts } from "../components/Toasts";
-import { usd } from "../format";
-import type { InventoryResponse } from "../types";
+import { timeAgo, usd } from "../format";
+import type { InventoryHistoryEntry, InventoryResponse } from "../types";
+
+const STEAM_ID_LS_KEY = "csfloat_steam_id";
 
 const TRADE_PROTECTED_INFO =
   "Since Steam's April 2024 update, items received in a trade are trade-protected " +
@@ -100,14 +102,52 @@ function PasteBox({
 
 export function InventoryPage() {
   const { push } = useToasts();
-  const [input, setInput] = useState("");
-  const [steamId, setSteamId] = useState<string | null>(null);
+  const [input, setInput] = useState(() => localStorage.getItem(STEAM_ID_LS_KEY) ?? "");
+  const [steamId, setSteamId] = useState<string | null>(
+    () => localStorage.getItem(STEAM_ID_LS_KEY),
+  );
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [manualOpen, setManualOpen] = useState(false);
   const [tradablePaste, setTradablePaste] = useState("");
   const [protectedPaste, setProtectedPaste] = useState("");
   const [result, setResult] = useState<InventoryResponse | null>(null);
+  const [resultTs, setResultTs] = useState<string | null>(null); // null = fresh load
+  const [history, setHistory] = useState<InventoryHistoryEntry[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // Restore the last session: remembered id, preferred method, latest snapshot.
+  useEffect(() => {
+    api
+      .inventorySession()
+      .then((session) => {
+        if (session.steam_id) {
+          setSteamId(session.steam_id);
+          localStorage.setItem(STEAM_ID_LS_KEY, session.steam_id);
+          setInput((current) => current || session.steam_id!);
+        }
+        if (session.method === "manual") setManualOpen(true);
+        if (session.latest) {
+          setResult(session.latest);
+          setResultTs(session.latest.ts);
+        }
+      })
+      .catch(() => {});
+    api
+      .inventoryHistory()
+      .then((h) => setHistory(h.snapshots))
+      .catch(() => {});
+  }, []);
+
+  const remember = (id: string | null) => {
+    setSteamId(id);
+    if (id) localStorage.setItem(STEAM_ID_LS_KEY, id);
+  };
+
+  const afterLoad = (resp: InventoryResponse) => {
+    setResult(resp);
+    setResultTs(null);
+    api.inventoryHistory().then((h) => setHistory(h.snapshots)).catch(() => {});
+  };
 
   const tradableParsed = useMemo(() => validatePaste(tradablePaste), [tradablePaste]);
   const protectedParsed = useMemo(() => validatePaste(protectedPaste), [protectedPaste]);
@@ -118,13 +158,12 @@ export function InventoryPage() {
   const fetchAuto = async () => {
     if (!input.trim()) return;
     setLoading(true);
-    setResult(null);
     setFetchError(null);
     try {
       const resp = await api.inventorySteam(input.trim());
-      setSteamId(resp.steam_id);
+      if (resp.steam_id) remember(resp.steam_id);
       if (resp.inventory) {
-        setResult(resp.inventory);
+        afterLoad(resp.inventory);
         setManualOpen(false);
       } else {
         setFetchError(resp.error ?? "Fetch failed.");
@@ -141,13 +180,13 @@ export function InventoryPage() {
 
   const loadManual = async () => {
     setLoading(true);
-    setResult(null);
     try {
       const resp = await api.inventoryManual(
         tradableParsed?.error ? null : (tradableParsed?.data ?? null),
         protectedParsed?.error ? null : (protectedParsed?.data ?? null),
+        steamId,
       );
-      setResult(resp);
+      afterLoad(resp);
     } catch (err) {
       push({
         kind: "error",
@@ -161,10 +200,9 @@ export function InventoryPage() {
 
   const uploadFile = async (file: File) => {
     setLoading(true);
-    setResult(null);
     try {
       const parsed = JSON.parse(await file.text());
-      setResult(await api.inventoryUpload(parsed));
+      afterLoad(await api.inventoryUpload(parsed, steamId));
     } catch (err) {
       push({
         kind: "error",
@@ -183,6 +221,10 @@ export function InventoryPage() {
   const contextNote =
     counts && counts.trade_protected > 0
       ? `${result!.item_count} items (${counts.tradable} tradable + ${counts.trade_protected} trade-protected)`
+      : null;
+  const historyDelta =
+    history.length >= 2
+      ? history[history.length - 1].total_value_cents - history[0].total_value_cents
       : null;
 
   return (
@@ -296,7 +338,16 @@ export function InventoryPage() {
 
       {result && (
         <>
-          {contextNote && <p className="small muted">{contextNote}</p>}
+          <div className="row" style={{ gap: 8 }}>
+            {resultTs ? (
+              <span className="badge" title={resultTs}>
+                saved snapshot · updated {timeAgo(resultTs)} — refresh above for current values
+              </span>
+            ) : (
+              <span className="badge up">freshly loaded</span>
+            )}
+            {contextNote && <span className="small muted">{contextNote}</span>}
+          </div>
           {result.truncated && (
             <p className="small" style={{ color: "var(--color-accent)" }}>
               Steam returned only part of this inventory. Change{" "}
@@ -371,6 +422,60 @@ export function InventoryPage() {
             <p className="xsmall muted">Showing the 200 most valuable lines of {result.items.length}.</p>
           )}
         </>
+      )}
+
+      {history.length >= 2 && (
+        <div className="panel stack" aria-label="Inventory history">
+          <div className="row spread">
+            <h2>Inventory value over time</h2>
+            {historyDelta !== null && (
+              <span
+                className={`delta ${historyDelta > 0 ? "up" : historyDelta < 0 ? "down" : "flat"}`}
+              >
+                {historyDelta > 0 ? "▲" : historyDelta < 0 ? "▼" : "•"} {usd(Math.abs(historyDelta))}{" "}
+                since {timeAgo(history[0].ts)}
+              </span>
+            )}
+          </div>
+          <div className="table-wrap">
+            <table className="data">
+              <thead>
+                <tr>
+                  <th>When</th>
+                  <th className="right">Total value</th>
+                  <th className="right">Items</th>
+                  <th className="right">Change</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...history].reverse().map((snap, i, arr) => {
+                  const prev = arr[i + 1];
+                  const diff = prev ? snap.total_value_cents - prev.total_value_cents : null;
+                  return (
+                    <tr key={snap.ts}>
+                      <td className="xsmall muted num" title={snap.ts}>
+                        {timeAgo(snap.ts)}
+                      </td>
+                      <td className="right num" style={{ fontWeight: 600 }}>
+                        {usd(snap.total_value_cents)}
+                      </td>
+                      <td className="right num">{snap.item_count}</td>
+                      <td className="right">
+                        {diff === null || diff === 0 ? (
+                          <span className="delta flat">—</span>
+                        ) : (
+                          <span className={`delta ${diff > 0 ? "up" : "down"}`}>
+                            {diff > 0 ? "▲" : "▼"} {usd(Math.abs(diff))}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
     </div>
   );

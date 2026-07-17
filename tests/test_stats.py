@@ -57,6 +57,77 @@ def test_history_summary():
     assert h["points"] == 3
 
 
+class _FakeVariant:
+    def __init__(self, min_float=0.0, max_float=1.0, reference_price_cents=None):
+        self.min_float = min_float
+        self.max_float = max_float
+        self.reference_price_cents = reference_price_cents
+
+
+class _FakeItemDb:
+    def __init__(self, variants: dict):
+        self._variants = variants
+
+    def lookup(self, name):
+        return self._variants.get(name)
+
+
+def test_deal_reason_low_float():
+    from csfloat_tracker.core.stats import deal_reason
+
+    # FT bracket is 0.15-0.38; float 0.151 is ~top 0.4%
+    listing = Listing.from_api(make_listing(price=2000, float_value=0.1505))
+    db = _FakeItemDb({
+        "AK-47 | Redline (Field-Tested)": _FakeVariant(0.10, 0.70, 2894),
+    })
+    reason = deal_reason(listing, db)
+    assert "top 1% float for FT" in reason
+
+
+def test_deal_reason_cross_wear():
+    from csfloat_tracker.core.stats import deal_reason
+
+    # FT listing priced under the MW reference
+    listing = Listing.from_api(make_listing(price=3000, float_value=0.30))
+    db = _FakeItemDb({
+        "AK-47 | Redline (Field-Tested)": _FakeVariant(0.10, 0.70, 2894),
+        "AK-47 | Redline (Minimal Wear)": _FakeVariant(0.10, 0.70, 3500),
+    })
+    reason = deal_reason(listing, db)
+    assert "costs less than the MW reference" in reason
+
+
+def test_deal_reason_stickers():
+    from csfloat_tracker.core.stats import deal_reason
+
+    raw = make_listing(price=2000, float_value=0.30)
+    raw["item"]["stickers"] = [
+        {"name": "Sticker | Katowice", "slot": 0, "reference": {"price": 120000}},
+    ]
+    listing = Listing.from_api(raw)
+    reason = deal_reason(listing, _FakeItemDb({}))
+    assert "$1200 in stickers" in reason
+
+
+def test_deal_reason_none_when_unremarkable():
+    from csfloat_tracker.core.stats import deal_reason
+
+    listing = Listing.from_api(make_listing(price=2000, float_value=0.30))
+    db = _FakeItemDb({"AK-47 | Redline (Field-Tested)": _FakeVariant(0.10, 0.70, 2894)})
+    assert deal_reason(listing, db) is None
+
+
+def test_marketplace_sale_breakdown():
+    from csfloat_tracker.core.markets import sale_breakdown
+
+    rows = {r["key"]: r for r in sale_breakdown(10000)}  # $100 sale
+    assert rows["csfloat"]["net_cents"] == 9800
+    assert rows["steam"]["net_cents"] == 8500
+    assert rows["buff163"]["fee_cents"] == 250
+    # Sorted table covers every market and nets never exceed gross
+    assert all(r["net_cents"] <= 10000 for r in rows.values())
+
+
 def test_portfolio_summary():
     entries = [
         {"id": 1, "market_hash_name": "A", "buy_price_cents": 1000, "quantity": 2},

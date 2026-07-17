@@ -2,10 +2,22 @@
 
 from fastapi import APIRouter
 
-from . import alerts, deals, history, inventory, listings, portfolio, search, settings, watchlists
+from . import (
+    alerts,
+    deals,
+    history,
+    inventory,
+    listings,
+    markets,
+    portfolio,
+    search,
+    settings,
+    watchlists,
+)
 
 api_router = APIRouter()
 api_router.include_router(search.router, tags=["search"])
+api_router.include_router(markets.router, tags=["markets"])
 api_router.include_router(listings.router, tags=["listings"])
 api_router.include_router(history.router, tags=["history"])
 api_router.include_router(watchlists.router, tags=["watchlists"])

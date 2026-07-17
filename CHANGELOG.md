@@ -1,5 +1,31 @@
 # Changelog
 
+## 1.3.0 — 2026-07-17
+
+### Added
+- **Inventory persistence**: your SteamID64/profile input is remembered
+  (localStorage + backend setting); every successful load saves a snapshot
+  to SQLite; returning to the page instantly shows the last valuation with
+  its age and an "Inventory value over time" history with per-load deltas.
+  If you loaded manually last time, Manual Load starts expanded.
+- **Marketplace fee comparison**: every item page shows what you'd receive
+  selling at the reference price on CSFloat (2%), Buff163 (2.5%), DMarket
+  (~5%), Skinport (12%) and Steam (15%, wallet-locked) — payout methods and
+  caveats included. New `GET /api/markets/fees` endpoint.
+- **Deal reasons**: the deal finder now explains each hit in trader terms —
+  "top 1% float for FT", "costs less than the MW reference", "~$40 in
+  stickers included" — in the feed, live toasts and Discord messages.
+- **Trader's Guide page**: floats & wear brackets, pattern lore (blue gems,
+  Doppler phases, fades), the 7-day market lock and April 2024
+  trade-protection, the fee table, how this app prices things, and a
+  one-minute API-key walkthrough.
+- **First-run onboarding** on the Search page: what works without a key
+  (catalog, inventory), how to get a key, where the Guide is.
+
+### Changed
+- README rewritten for traders: leads with what the tool does that browsing
+  CSFloat.com doesn't.
+
 ## 1.2.0 — 2026-07-17
 
 ### Added

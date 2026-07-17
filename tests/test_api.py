@@ -267,6 +267,58 @@ async def test_inventory_manual_single_context(api):
     assert r.json()["item_count"] == 1
 
 
+async def test_inventory_persistence_flow(api):
+    sid = "76561198349712477"
+    # Manual load with a known steam_id records a snapshot + remembers the method
+    r = await api.post("/api/inventory/manual", json={
+        "tradable": _steam_payload("2", ["1", "2"]),
+        "steam_id": sid,
+    })
+    assert r.status_code == 200
+
+    r = await api.get("/api/inventory/session")
+    body = r.json()
+    assert body["steam_id"] == sid
+    assert body["method"] == "manual"
+    assert body["latest"]["total_value_cents"] == 2894 * 2
+    assert body["latest"]["items"][0]["market_hash_name"] == "AK-47 | Redline (Field-Tested)"
+    assert body["latest"]["unpriced_count"] == 0  # shape matches live responses
+
+    # Second load builds history
+    r = await api.post("/api/inventory/manual", json={
+        "tradable": _steam_payload("2", ["1", "2", "3"]),
+        "steam_id": sid,
+    })
+    r = await api.get("/api/inventory/history")
+    snaps = r.json()["snapshots"]
+    assert [s["total_value_cents"] for s in snaps] == [2894 * 2, 2894 * 3]
+
+    # Manual load without a steam_id still works, just no snapshot attribution
+    r = await api.post("/api/inventory/manual", json={"tradable": _steam_payload("2", ["9"])})
+    assert r.status_code == 200
+
+
+async def test_inventory_session_empty(api):
+    r = await api.get("/api/inventory/session")
+    body = r.json()
+    assert body["steam_id"] is None
+    assert body["latest"] is None
+    r = await api.get("/api/inventory/history")
+    assert r.json()["snapshots"] == []
+
+
+async def test_markets_fees(api):
+    r = await api.get("/api/markets/fees")
+    table = r.json()["marketplaces"]
+    assert any(m["key"] == "csfloat" for m in table)
+    assert "net_cents" not in table[0]
+
+    r = await api.get("/api/markets/fees", params={"price_cents": 10000})
+    rows = {m["key"]: m for m in r.json()["marketplaces"]}
+    assert rows["csfloat"]["net_cents"] == 9800
+    assert rows["steam"]["net_cents"] == 8500
+
+
 async def test_inventory_manual_rejects_empty(api):
     r = await api.post("/api/inventory/manual", json={})
     assert r.status_code == 400

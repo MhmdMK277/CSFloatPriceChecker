@@ -17,7 +17,7 @@ from datetime import UTC, datetime
 import httpx
 
 from ..core.errors import CSFloatError, RateLimitError
-from ..core.stats import discount_pct, summarize_listings
+from ..core.stats import deal_reason, discount_pct, summarize_listings
 from .deps import AppContext
 
 logger = logging.getLogger(__name__)
@@ -204,6 +204,7 @@ class Worker:
             pct = discount_pct(listing.price_cents, ref)
             if pct < threshold:
                 continue
+            reason = deal_reason(listing, self.ctx.itemdb)
             is_new = await self.ctx.storage.record_deal(
                 listing_id=listing.id,
                 market_hash_name=listing.market_hash_name,
@@ -212,6 +213,7 @@ class Worker:
                 discount_pct=pct,
                 float_value=listing.float_value,
                 listing_url=listing.url,
+                reason=reason,
             )
             if is_new:
                 found += 1
@@ -220,12 +222,14 @@ class Worker:
                     "price_cents": listing.price_cents,
                     "reference_price_cents": ref,
                     "discount_pct": pct,
+                    "reason": reason,
                     "url": listing.url,
                 }
                 await self.ctx.ws.broadcast("deal", payload)
+                extra = f"\n{reason}" if reason else ""
                 await self._notify_discord(
                     f"💰 **Deal** — {listing.market_hash_name} at "
-                    f"${listing.price_usd:.2f} ({pct:.1f}% below reference)\n{listing.url}"
+                    f"${listing.price_usd:.2f} ({pct:.1f}% below reference){extra}\n{listing.url}"
                 )
         if found:
             await self.ctx.storage.prune_deals()

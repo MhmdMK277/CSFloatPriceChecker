@@ -1,8 +1,8 @@
-"""CSFloat Tracker — self-hosted CS2 market intelligence.
+"""CSFloat Tracker - self-hosted CS2 market intelligence.
 
 Async CSFloat API client, always-fresh item database, price tracking,
 watchlists, alerts, deal finding and inventory pricing, served through a
 FastAPI backend with a web UI and a terminal CLI.
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"

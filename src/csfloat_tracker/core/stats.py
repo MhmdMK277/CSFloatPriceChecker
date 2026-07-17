@@ -6,6 +6,7 @@ import statistics
 from typing import Any
 
 from .models import Listing
+from .wears import WEARS, wear_for_float
 
 
 def summarize_listings(listings: list[Listing]) -> dict[str, Any]:
@@ -31,6 +32,49 @@ def discount_pct(price_cents: int, reference_cents: int) -> float:
     if reference_cents <= 0:
         return 0.0
     return round((1 - price_cents / reference_cents) * 100, 2)
+
+
+def deal_reason(listing: Listing, itemdb) -> str | None:
+    """Explain *why* a listing is a deal, in trader language.
+
+    Combines: float rank inside the wear bracket, price vs the
+    one-wear-better reference, and sticker value riding along. Returns
+    None when there's nothing beyond the raw discount to say.
+    """
+    parts: list[str] = []
+    variant = itemdb.lookup(listing.market_hash_name)
+
+    fv = listing.float_value
+    if fv is not None and variant is not None:
+        wear = wear_for_float(fv)
+        if wear:
+            # Percentile within the wear bracket, clamped to what this
+            # paint can actually roll.
+            lo = max(wear.lo, variant.min_float or 0.0)
+            hi = min(wear.hi, variant.max_float or 1.0)
+            if hi > lo:
+                pct_in_bracket = (fv - lo) / (hi - lo) * 100
+                if pct_in_bracket <= 5:
+                    parts.append(f"top {max(1, round(pct_in_bracket))}% float for {wear.abbr}")
+
+            # Cheaper than the next-better wear's reference price?
+            wear_idx = next((i for i, w in enumerate(WEARS) if w.abbr == wear.abbr), 0)
+            if wear_idx > 0:
+                better = WEARS[wear_idx - 1]
+                better_name = listing.market_hash_name.replace(f"({wear.name})", f"({better.name})")
+                better_variant = itemdb.lookup(better_name)
+                if (
+                    better_variant
+                    and better_variant.reference_price_cents
+                    and listing.price_cents < better_variant.reference_price_cents
+                ):
+                    parts.append(f"costs less than the {better.abbr} reference")
+
+    sticker_cents = sum(s.reference_price_cents or 0 for s in listing.stickers)
+    if sticker_cents >= 500:
+        parts.append(f"~${sticker_cents / 100:.0f} in stickers included")
+
+    return " · ".join(parts) if parts else None
 
 
 def trend(snapshots: list[dict[str, Any]], *, threshold_pct: float = 1.0) -> str:

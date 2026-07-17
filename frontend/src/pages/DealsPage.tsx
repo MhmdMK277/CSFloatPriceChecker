@@ -146,7 +146,14 @@ export function DealsPage() {
               {deals.map((deal) => (
                 <tr key={deal.id}>
                   <td className="xsmall muted num">{timeAgo(deal.ts)}</td>
-                  <td style={{ overflowWrap: "anywhere" }}>{deal.market_hash_name}</td>
+                  <td style={{ overflowWrap: "anywhere" }}>
+                    {deal.market_hash_name}
+                    {deal.reason && (
+                      <div className="xsmall" style={{ color: "var(--color-accent)" }}>
+                        {deal.reason}
+                      </div>
+                    )}
+                  </td>
                   <td className="right num" style={{ fontWeight: 600 }}>
                     {usd(deal.price_cents)}
                   </td>

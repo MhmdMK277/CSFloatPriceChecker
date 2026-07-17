@@ -8,6 +8,7 @@ import { ToastProvider, useToasts } from "./components/Toasts";
 import { pct, usd } from "./format";
 import { AlertsPage } from "./pages/AlertsPage";
 import { DealsPage } from "./pages/DealsPage";
+import { GuidePage } from "./pages/GuidePage";
 import { InventoryPage } from "./pages/InventoryPage";
 import { ItemPage } from "./pages/ItemPage";
 import { PortfolioPage } from "./pages/PortfolioPage";
@@ -24,6 +25,7 @@ const NAV = [
   { to: "/deals", label: "Deal finder", icon: "M4 17l5-5 3 3 8-8M14 7h6v6" },
   { to: "/inventory", label: "Inventory", icon: "M4 8l8-4 8 4v8l-8 4-8-4V8Zm8 0v12M4 8l8 4 8-4" },
   { to: "/portfolio", label: "Portfolio", icon: "M5 20V10m7 10V4m7 16v-7" },
+  { to: "/guide", label: "Guide", icon: "M6 4h9a3 3 0 0 1 3 3v13H8a2 2 0 0 0-2 2V4Zm0 16a2 2 0 0 1 2-2h10M10 8h5m-5 4h5" },
   { to: "/settings", label: "Settings", icon: "M12 9a3 3 0 1 1 0 6 3 3 0 0 1 0-6Zm8 3-1.5 2.6.5 3-2.9 1-1.7 2.4h-3l-1.7-2.4-2.9-1 .5-3L4 12l1.5-2.6-.5-3 2.9-1L9.5 3h3l1.7 2.4 2.9 1-.5 3L20 12Z" },
 ];
 
@@ -159,6 +161,7 @@ function Shell() {
           <Route path="/deals" element={<DealsPage />} />
           <Route path="/inventory" element={<InventoryPage />} />
           <Route path="/portfolio" element={<PortfolioPage />} />
+          <Route path="/guide" element={<GuidePage />} />
           <Route path="/settings" element={<SettingsPage onStatusChange={loadStatus} />} />
         </Routes>
       </div>
