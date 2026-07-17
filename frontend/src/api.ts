@@ -11,6 +11,7 @@ import type {
   ItemVariant,
   ListingsResponse,
   PortfolioResponse,
+  SteamFetchResponse,
   TrackedItem,
   WatchlistDetail,
   WatchlistSummary,
@@ -116,8 +117,13 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ data }),
     }),
-  inventorySteam: (steamId: string) =>
-    request<InventoryResponse>(`/api/inventory/steam/${encodeURIComponent(steamId)}`),
+  inventorySteam: (input: string) =>
+    request<SteamFetchResponse>(`/api/inventory/steam${qs({ q: input })}`),
+  inventoryManual: (tradable: unknown | null, tradeProtected: unknown | null) =>
+    request<InventoryResponse>("/api/inventory/manual", {
+      method: "POST",
+      body: JSON.stringify({ tradable, trade_protected: tradeProtected }),
+    }),
 
   portfolio: () => request<PortfolioResponse>("/api/portfolio"),
   addPortfolio: (entry: {

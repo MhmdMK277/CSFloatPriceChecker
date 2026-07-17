@@ -32,9 +32,11 @@ and value your whole Steam inventory — from a fast web UI or your terminal.
   webhook.
 - **Deal finder (sniper mode)** — continuously scans the newest listings and
   flags anything priced ≥ N % below its reference price, with a budget cap.
-- **Inventory pricing** — paste a SteamID64 (public inventories) or upload an
-  inventory JSON dump; get a total value and per-item breakdown instantly,
-  with zero API budget spent.
+- **Inventory pricing** — paste your Steam profile URL or SteamID64, or use
+  the SkinSearch-style **Manual Load**: open your own inventory JSON in the
+  browser (bypasses Steam's aggressive rate limiting) and paste it in, with
+  both the tradable and the post-April-2024 trade-protected contexts merged.
+  Total value and per-item breakdown appear instantly, zero API budget spent.
 - **Portfolio** — log your buys, see unrealized P&L and ROI against current
   reference prices.
 - **A real terminal CLI** — `search`, `price`, `refresh-db`, `key`, `serve`.

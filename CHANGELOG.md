@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- **Inventory Manual Load** (SkinSearch-style): open your own inventory JSON
+  links in the browser and paste the responses — reliable regardless of
+  Steam's server-side rate limiting. Live validation shows the detected item
+  count per paste; both inventory contexts (2 tradable, 16 trade-protected
+  since Steam's April 2024 update) merge with per-context counts and
+  assetid deduplication.
+- Inventory input now accepts Steam profile URLs
+  (`steamcommunity.com/profiles/<id64>`) as well as raw SteamID64s; custom
+  `/id/<name>` URLs get a helpful pointer to steamid.io. Auto-fetch failures
+  surface the Manual Load section pre-populated with your personal links.
+- Auto-fetch now also attempts the trade-protected context (best effort) and
+  flags truncated responses (`more_items`) with advice to raise `count=`.
+
 ## 1.1.0 — 2026-07-17
 
 ### Added

@@ -195,7 +195,15 @@ export interface InventoryResponse {
   priced_count: number;
   unpriced_count: number;
   value_by_type: Record<string, number>;
+  context_counts: { tradable: number; trade_protected: number; other: number };
+  truncated: boolean;
   pricing_source: string;
+}
+
+export interface SteamFetchResponse {
+  steam_id: string | null;
+  error: string | null;
+  inventory: InventoryResponse | null;
 }
 
 export interface PortfolioEntry {

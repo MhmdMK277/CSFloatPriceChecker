@@ -1,15 +1,30 @@
 """Steam inventory import and valuation.
 
+Three import paths, in order of reliability:
+- manual paste of inventory JSON per context (works around Steam's
+  aggressive rate limiting — the user copies from their own browser)
+- automatic fetch by SteamID64 / profile URL (works sometimes)
+- raw JSON dump upload
+
 Valuation uses CSFloat's own reference prices from the item database, so a
 full inventory prices instantly without spending any listings-API budget.
 """
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from typing import Any
+
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
-from ...core.inventory import fetch_steam_inventory, parse_inventory
+from ...core.errors import CSFloatError
+from ...core.inventory import (
+    context_counts,
+    fetch_full_inventory,
+    merge_inventory_payloads,
+    parse_inventory,
+    parse_steam_input,
+)
 from ...core.schema_parser import expand_image
 from ..deps import AppContext, get_ctx
 
@@ -22,7 +37,15 @@ class InventoryUpload(BaseModel):
     data: dict  # raw Steam inventory JSON (assets + descriptions)
 
 
-def _value_inventory(items, ctx: AppContext) -> dict:
+class ManualLoad(BaseModel):
+    """Pasted inventory JSON per context; either side may be omitted."""
+
+    tradable: dict | None = None
+    trade_protected: dict | None = None
+
+
+def _value_inventory(merged: dict[str, Any], ctx: AppContext) -> dict:
+    items = parse_inventory(merged)
     rows = []
     total_cents = 0
     priced = 0
@@ -58,20 +81,50 @@ def _value_inventory(items, ctx: AppContext) -> dict:
         "priced_count": priced,
         "unpriced_count": len(items) - priced,
         "value_by_type": dict(sorted(by_type.items(), key=lambda kv: -kv[1])),
+        "context_counts": context_counts(merged),
+        "truncated": bool(merged.get("truncated")),
         "pricing_source": "csfloat_reference",
     }
+
+
+@router.get("/inventory/steam")
+async def fetch_inventory(
+    q: str = Query(..., description="SteamID64 or steamcommunity.com profile URL"),
+    ctx: AppContext = Depends(get_ctx),
+):
+    """Resolve the input and attempt an automatic fetch.
+
+    Always returns 200 with a soft result so the UI can pre-populate the
+    Manual Load links even when Steam rate-limits the fetch:
+    ``{steam_id, error, inventory}``.
+    """
+    steam_id, parse_error = parse_steam_input(q)
+    if not steam_id:
+        return {"steam_id": None, "error": parse_error, "inventory": None}
+    try:
+        merged = await fetch_full_inventory(steam_id)
+    except CSFloatError as exc:
+        return {"steam_id": steam_id, "error": exc.message, "inventory": None}
+    return {"steam_id": steam_id, "error": None, "inventory": _value_inventory(merged, ctx)}
+
+
+@router.post("/inventory/manual")
+async def manual_load(body: ManualLoad, ctx: AppContext = Depends(get_ctx)):
+    """Value inventory JSON the user pasted from their own browser session."""
+    payloads = [p for p in (body.tradable, body.trade_protected) if p]
+    if not payloads:
+        raise CSFloatError("Paste at least one inventory JSON response.", status=400)
+    merged = merge_inventory_payloads(payloads)
+    if not merged["assets"]:
+        raise CSFloatError(
+            "That JSON has no items — make sure you copied the full response body.",
+            status=400,
+        )
+    return _value_inventory(merged, ctx)
 
 
 @router.post("/inventory/upload")
 async def upload_inventory(body: InventoryUpload, ctx: AppContext = Depends(get_ctx)):
     """Value an inventory from an uploaded Steam JSON dump."""
-    items = parse_inventory(body.data)
-    return _value_inventory(items, ctx)
-
-
-@router.get("/inventory/steam/{steam_id}")
-async def fetch_inventory(steam_id: str, ctx: AppContext = Depends(get_ctx)):
-    """Fetch and value a public Steam inventory by SteamID64."""
-    data = await fetch_steam_inventory(steam_id)
-    items = parse_inventory(data)
-    return _value_inventory(items, ctx)
+    merged = merge_inventory_payloads([body.data])
+    return _value_inventory(merged, ctx)

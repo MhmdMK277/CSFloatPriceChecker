@@ -171,6 +171,22 @@ async def test_tracked_and_history(api, ctx):
         await api.delete(f"/api/tracked/{tid}")
 
 
+def _steam_payload(context: str, asset_ids: list[str]) -> dict:
+    return {
+        "assets": [
+            {"appid": 730, "contextid": context, "assetid": a, "classid": f"c{a}", "instanceid": "0"}
+            for a in asset_ids
+        ],
+        "descriptions": [
+            {"classid": f"c{a}", "instanceid": "0",
+             "market_hash_name": "AK-47 | Redline (Field-Tested)",
+             "type": "Classified Rifle", "marketable": 1,
+             "tags": [{"category": "Exterior", "localized_tag_name": "Field-Tested"}]}
+            for a in asset_ids
+        ],
+    }
+
+
 async def test_inventory_upload(api):
     r = await api.post("/api/inventory/upload", json={"data": {
         "assets": [{"classid": "c1", "instanceid": "i1"}],
@@ -185,7 +201,80 @@ async def test_inventory_upload(api):
     body = r.json()
     assert body["total_value_cents"] == 2894
     assert body["priced_count"] == 1
+    assert body["truncated"] is False
     assert body["items"][0]["rarity_name"] is None or isinstance(body["items"][0]["rarity_name"], str)
+
+
+async def test_inventory_steam_vanity_soft_error(api):
+    r = await api.get("/api/inventory/steam", params={"q": "https://steamcommunity.com/id/sparkles"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["steam_id"] is None
+    assert "sparkles" in body["error"]
+    assert body["inventory"] is None
+
+
+@respx.mock
+async def test_inventory_steam_rate_limited_returns_steam_id(api):
+    sid = "76561198349712477"
+    respx.get(f"https://steamcommunity.com/inventory/{sid}/730/2").mock(
+        return_value=httpx.Response(429)
+    )
+    r = await api.get("/api/inventory/steam", params={
+        "q": f"https://steamcommunity.com/profiles/{sid}/",
+    })
+    assert r.status_code == 200
+    body = r.json()
+    assert body["steam_id"] == sid  # UI needs this to build manual-load links
+    assert "Manual Load" in body["error"]
+    assert body["inventory"] is None
+
+
+@respx.mock
+async def test_inventory_steam_success_merges_contexts(api):
+    sid = "76561198349712477"
+    respx.get(f"https://steamcommunity.com/inventory/{sid}/730/2").mock(
+        return_value=httpx.Response(200, json=_steam_payload("2", ["1", "2"]))
+    )
+    respx.get(f"https://steamcommunity.com/inventory/{sid}/730/16").mock(
+        return_value=httpx.Response(200, json=_steam_payload("16", ["9"]))
+    )
+    r = await api.get("/api/inventory/steam", params={"q": sid})
+    body = r.json()
+    assert body["error"] is None
+    inv = body["inventory"]
+    assert inv["item_count"] == 3
+    assert inv["context_counts"] == {"tradable": 2, "trade_protected": 1, "other": 0}
+
+
+async def test_inventory_manual_merges_and_counts(api):
+    r = await api.post("/api/inventory/manual", json={
+        "tradable": _steam_payload("2", ["1", "2"]),
+        "trade_protected": _steam_payload("16", ["9"]),
+    })
+    assert r.status_code == 200
+    body = r.json()
+    assert body["item_count"] == 3
+    assert body["context_counts"]["trade_protected"] == 1
+    assert body["total_value_cents"] == 2894 * 3
+
+
+async def test_inventory_manual_single_context(api):
+    r = await api.post("/api/inventory/manual", json={
+        "trade_protected": _steam_payload("16", ["9"]),
+    })
+    assert r.status_code == 200
+    assert r.json()["item_count"] == 1
+
+
+async def test_inventory_manual_rejects_empty(api):
+    r = await api.post("/api/inventory/manual", json={})
+    assert r.status_code == 400
+    assert "Paste" in r.json()["error"]
+
+    r = await api.post("/api/inventory/manual", json={"tradable": {"assets": []}})
+    assert r.status_code == 400
+    assert "no items" in r.json()["error"]
 
 
 async def test_portfolio_flow(api):

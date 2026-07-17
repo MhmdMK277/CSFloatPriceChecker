@@ -390,6 +390,19 @@ input.num {
   font-family: var(--font-data);
 }
 
+textarea.paste-box {
+  min-height: 120px;
+  width: 100%;
+  resize: vertical;
+  font-family: var(--font-data);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}
+
+textarea.paste-box[aria-invalid="true"] {
+  border-color: var(--color-danger);
+}
+
 /* ---- searchbox + autocomplete ------------------------------------------- */
 
 .searchbox {
